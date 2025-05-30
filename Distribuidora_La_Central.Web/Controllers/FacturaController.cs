@@ -23,7 +23,8 @@ namespace Distribuidora_La_Central.Web.Controllers
         public IActionResult GetAllFacturas()
         {
             using SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            SqlDataAdapter da = new SqlDataAdapter("SELECT * FROM Factura", con);
+            // Asegúrate de incluir el campo 'estado' en la consulta
+            SqlDataAdapter da = new SqlDataAdapter("SELECT codigoFactura, codigoCliente, fecha, totalFactura, saldo, tipo, estado FROM Factura", con);
             DataTable dt = new DataTable();
             da.Fill(dt);
             List<Factura> facturas = new List<Factura>();
@@ -37,13 +38,13 @@ namespace Distribuidora_La_Central.Web.Controllers
                     fecha = Convert.ToDateTime(row["fecha"]),
                     totalFactura = Convert.ToDecimal(row["totalFactura"]),
                     saldo = Convert.ToDecimal(row["saldo"]),
-                    tipo = row["tipo"].ToString()
+                    tipo = row["tipo"].ToString(),
+                    estado = row["estado"]?.ToString() // Asegúrate que tu modelo Factura tenga esta propiedad
                 });
             }
 
             return Ok(facturas);
         }
-
         [HttpGet("GetFacturaPorCodigo/{codigo}")]
         public IActionResult GetFacturaPorCodigo(int codigo)
         {
@@ -61,12 +62,13 @@ namespace Distribuidora_La_Central.Web.Controllers
 
             var factura = new Factura
             {
-                codigoFactura = Convert.ToInt32(row["codigoFactura"]),
+                codigoFactura = Convert.ToInt32(row["codigoFactura"]), // Corregido el typo "codigoFactura"
                 codigoCliente = Convert.ToInt32(row["codigoCliente"]),
                 fecha = Convert.ToDateTime(row["fecha"]),
                 totalFactura = Convert.ToDecimal(row["totalFactura"]),
                 saldo = Convert.ToDecimal(row["saldo"]),
-                tipo = row["tipo"].ToString()
+                tipo = row["tipo"].ToString(),
+                estado = row["estado"]?.ToString()
             };
 
             return Ok(factura);

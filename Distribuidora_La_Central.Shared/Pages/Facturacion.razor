@@ -911,13 +911,21 @@
 
     private async Task CargarFacturas()
     {
-        // Cargar todas las facturas
-        var todasFacturas = await Http.GetFromJsonAsync<List<Factura>>("api/factura/GetAllFacturas");
+        try
+        {
+            // Cargar todas las facturas sin filtrar
+            facturas = await Http.GetFromJsonAsync<List<Factura>>("api/factura/GetAllFacturas")
+                       ?? new List<Factura>();
 
-        // Filtrar solo las facturas con saldo pendiente
-        facturas = todasFacturas?
-            .Where(f => f.saldo > 0 && (f.estado == null || f.estado != "Pagado"))
-            .ToList() ?? new List<Factura>();
+            // Opcional: Ordenar por fecha descendente
+            facturas = facturas.OrderByDescending(f => f.fecha).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar facturas: {ex.Message}");
+            facturas = new List<Factura>();
+            await JS.InvokeVoidAsync("alert", "Error al cargar el historial de facturas");
+        }
     }
 
    
