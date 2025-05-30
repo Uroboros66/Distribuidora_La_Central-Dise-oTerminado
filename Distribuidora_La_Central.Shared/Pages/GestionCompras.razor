@@ -1,0 +1,1203 @@
+﻿@page "/GestionCompras"
+@inject HttpClient Http
+@using System.Net.Http.Json
+
+@code {
+    // Variables de estado
+    private string activeTab = "registro";
+    private List<Compra> compras = new();
+    private List<Compra> comprasFiltradas = new();
+    private List<Producto> productos = new();
+    private List<Proveedor> proveedores = new();
+    private List<DetalleCompra> detallesCompra = new();
+    private List<DetalleCompra> detallesCompraSeleccionada = new();
+    private Compra nuevaCompra = new();
+    private Compra? compraSeleccionada;
+    private DetalleCompra nuevoDetalle = new();
+    private string? mensaje;
+    private bool showDetalleModal = false;
+
+    // Filtros
+    private int filtroProveedor = 0;
+    private string filtroEstado = "";
+    private DateTime? filtroFechaInicio;
+    private DateTime? filtroFechaFin;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatosIniciales();
+    }
+
+    private async Task CargarDatosIniciales()
+    {
+        try
+        {
+            // Cargar productos
+            productos = await Http.GetFromJsonAsync<List<Producto>>("api/Producto/GetAllProductos") ?? new();
+
+            // Cargar proveedores
+            proveedores = await Http.GetFromJsonAsync<List<Proveedor>>("api/Proveedor/obtener-todos") ?? new();
+
+            // Cargar compras
+            compras = await Http.GetFromJsonAsync<List<Compra>>("api/Compra/GetAllCompras") ?? new();
+            comprasFiltradas = compras;
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"Error al cargar datos iniciales: {ex.Message}";
+        }
+    }
+
+    private void SwitchTab(string tab)
+    {
+        activeTab = tab;
+    }
+
+    // Métodos para registro de compra
+    private void AgregarProductoDetalle()
+    {
+        if (nuevoDetalle.CodigoProducto == 0 || nuevoDetalle.Cantidad <= 0 || nuevoDetalle.PrecioUnitario <= 0)
+        {
+            mensaje = "Por favor complete todos los campos del producto";
+            return;
+        }
+
+        detallesCompra.Add(new DetalleCompra
+            {
+                CodigoProducto = nuevoDetalle.CodigoProducto,
+                Cantidad = nuevoDetalle.Cantidad,
+                PrecioUnitario = nuevoDetalle.PrecioUnitario
+            });
+
+        nuevoDetalle = new DetalleCompra();
+    }
+
+    private void EliminarProductoDetalle(DetalleCompra detalle)
+    {
+        detallesCompra.Remove(detalle);
+    }
+
+    private decimal totalCompra => detallesCompra.Sum(d => d.Cantidad * d.PrecioUnitario);
+
+    private async Task GuardarCompra()
+    {
+        if (nuevaCompra.proveedor.idProveedor == 0)
+        {
+            mensaje = "Seleccione un proveedor";
+            return;
+        }
+
+        if (string.IsNullOrEmpty(nuevaCompra.MetodoPago))
+        {
+            mensaje = "Seleccione un método de pago";
+            return;
+        }
+
+        if (detallesCompra.Count == 0)
+        {
+            mensaje = "Agregue al menos un producto";
+            return;
+        }
+
+        try
+        {
+            // Configurar la compra
+            nuevaCompra.fechaCompra = nuevaCompra.fechaCompra == DateTime.MinValue ? DateTime.Now : nuevaCompra.fechaCompra;
+            nuevaCompra.TotalCompra = totalCompra;
+            nuevaCompra.Estado = "Pendiente";
+
+            // Crear objeto para enviar
+            var compraRequest = new
+            {
+                Compra = new
+                {
+                    idProveedor = nuevaCompra.proveedor.idProveedor,
+                    fechaCompra = nuevaCompra.fechaCompra,
+                    TotalCompra = nuevaCompra.TotalCompra,
+                    Estado = nuevaCompra.Estado,
+                    FechaPago = (DateTime?)null,
+                    MetodoPago = nuevaCompra.MetodoPago
+                },
+                Detalles = detallesCompra.Select(d => new
+                {
+                    CodigoProducto = d.CodigoProducto,
+                    Cantidad = d.Cantidad,
+                    PrecioUnitario = d.PrecioUnitario,
+                    Subtotal = d.Cantidad * d.PrecioUnitario
+                }).ToList()
+            };
+
+            // Guardar la compra
+            var response = await Http.PostAsJsonAsync("api/Compra/AgregarCompra", compraRequest);
+
+            if (response.IsSuccessStatusCode)
+            {
+                // Deserializar la respuesta usando la clase específica
+                var result = await response.Content.ReadFromJsonAsync<CompraResponse>();
+
+                if (result != null)
+                {
+                    mensaje = $"✅ Compra #{result.idCompra} registrada correctamente";
+                    await CargarDatosIniciales();
+                    LimpiarFormulario();
+                }
+                else
+                {
+                    mensaje = "Error: No se pudo interpretar la respuesta del servidor";
+                }
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                mensaje = $"Error al guardar: {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"Error: {ex.Message}";
+        }
+    }
+    private void LimpiarFormulario()
+    {
+        nuevaCompra = new Compra();
+        detallesCompra = new List<DetalleCompra>();
+    }
+
+    private void CancelarCompra()
+    {
+        LimpiarFormulario();
+        mensaje = "Compra cancelada";
+    }
+
+    // Métodos para historial de compras
+    private void AplicarFiltros()
+    {
+        comprasFiltradas = compras;
+
+        if (filtroProveedor > 0)
+        {
+            comprasFiltradas = comprasFiltradas
+                .Where(c => c.proveedor.idProveedor == filtroProveedor)
+                .ToList();
+        }
+
+        if (!string.IsNullOrEmpty(filtroEstado))
+        {
+            comprasFiltradas = comprasFiltradas
+                .Where(c => c.Estado == filtroEstado)
+                .ToList();
+        }
+
+        if (filtroFechaInicio.HasValue)
+        {
+            comprasFiltradas = comprasFiltradas
+                .Where(c => c.fechaCompra >= filtroFechaInicio.Value)
+                .ToList();
+        }
+
+        if (filtroFechaFin.HasValue)
+        {
+            comprasFiltradas = comprasFiltradas
+                .Where(c => c.fechaCompra <= filtroFechaFin.Value)
+                .ToList();
+        }
+    }
+
+    private async Task MostrarDetalleCompra(int idCompra)
+    {
+        try
+        {
+            compraSeleccionada = compras.FirstOrDefault(c => c.idCompra == idCompra);
+
+            if (compraSeleccionada != null)
+            {
+                var detallesResponse = await Http.GetFromJsonAsync<List<DetalleCompra>>("api/DetalleCompra/GetAllDetallesCompra");
+                detallesCompraSeleccionada = detallesResponse?.Where(d => d.IdCompra == idCompra).ToList() ?? new();
+                showDetalleModal = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"Error al cargar detalle: {ex.Message}";
+        }
+    }
+
+    private void CerrarDetalleModal()
+    {
+        showDetalleModal = false;
+        compraSeleccionada = null;
+        detallesCompraSeleccionada = new List<DetalleCompra>();
+    }
+
+    private async Task EditarCompra(int idCompra)
+    {
+        mensaje = "Función de edición en desarrollo";
+    }
+
+    // Clases modelo
+    public class Compra
+    {
+        public int idCompra { get; set; }
+        public Proveedor proveedor { get; set; } = new Proveedor();
+        public DateTime fechaCompra { get; set; } = DateTime.Now;
+        public decimal TotalCompra { get; set; }
+        public string Estado { get; set; } = "Pendiente";
+      
+        public DateTime? FechaPago { get; set; }
+        public string? MetodoPago { get; set; }
+    }
+
+    public class CompraResponse
+    {
+        public int idCompra { get; set; }
+        public string message { get; set; }
+    }
+
+    public class DetalleCompra
+    {
+        public int IdDetalleCompra { get; set; }
+        public int IdCompra { get; set; }
+        public int CodigoProducto { get; set; }
+        public int Cantidad { get; set; }
+        public decimal PrecioUnitario { get; set; }
+    }
+
+    public class Proveedor
+    {
+        public int idProveedor { get; set; }
+        public string nombre { get; set; } = string.Empty;
+    }
+
+    public class Producto
+    {
+        public int codigoProducto { get; set; }
+        public string descripcion { get; set; } = string.Empty;
+        public string detalle { get; set; } = string.Empty;
+        public int cantidad { get; set; }
+        public string categoria { get; set; } = string.Empty;
+        public decimal descuento { get; set; }
+        public decimal costo { get; set; }
+        public string bodega { get; set; } = string.Empty;
+        public int idProveedor { get; set; }
+    }
+}
+
+<!-- Interfaz de usuario rediseñada -->
+<div class="compras-container">
+    <header class="app-header">
+        <div class="header-title">
+            <h1>Gestión de Compras</h1>
+            <h2>Módulo de Compras</h2>
+        </div>
+        <div class="header-admin">
+            <div class="user-badge">
+                <i class="fas fa-user-circle"></i>
+                <span>Administrador</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="tabs">
+        <button class="@(activeTab == "registro" ? "active" : "")" @onclick="@(() => SwitchTab("registro"))">
+            <i class="fas fa-cart-plus"></i> Registro
+        </button>
+        <button class="@(activeTab == "historial" ? "active" : "")" @onclick="@(() => SwitchTab("historial"))">
+            <i class="fas fa-history"></i> Historial
+        </button>
+    </div>
+
+    <div class="content-area">
+        @if (activeTab == "registro")
+        {
+            <div class="registro-compra card">
+                <div class="card-header">
+                    <h3><i class="fas fa-file-invoice-dollar"></i> Nueva Compra</h3>
+                </div>
+
+                <div class="card-body">
+                    <div class="compra-info">
+                        <div class="form-group">
+                            <label><i class="fas fa-truck"></i> Proveedor:</label>
+                            <select @bind="nuevaCompra.proveedor.idProveedor" class="form-control">
+                                <option value="0">Seleccione un proveedor</option>
+                                @foreach (var prov in proveedores)
+                                {
+                                    <option value="@prov.idProveedor">@prov.nombre</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fas fa-calendar-alt"></i> Fecha:</label>
+                            <input type="date" @bind="nuevaCompra.fechaCompra" format="yyyy-MM-dd" class="form-control" />
+                        </div>
+
+                        <div class="form-group">
+                            <label><i class="fas fa-money-bill-wave"></i> Método de Pago:</label>
+                            <select @bind="nuevaCompra.MetodoPago" class="form-control">
+                                <option value="">Seleccione...</option>
+                                <option value="Efectivo">Efectivo</option>
+                                <option value="Transferencia">Transferencia</option>
+                                <option value="Tarjeta">Tarjeta</option>
+                                <option value="Cheque">Cheque</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="detalle-productos">
+                        <div class="section-title">
+                            <h4><i class="fas fa-boxes"></i> Detalle de Productos</h4>
+                        </div>
+
+                        <div class="agregar-producto">
+                            <select @bind="nuevoDetalle.CodigoProducto" class="form-control">
+                                <option value="0">Seleccione un producto</option>
+                                @foreach (var prod in productos)
+                                {
+                                    <option value="@prod.codigoProducto">@prod.descripcion</option>
+                                }
+                            </select>
+                            <input type="number" @bind="nuevoDetalle.Cantidad" placeholder="Cantidad" min="1" class="form-control" />
+                            <input type="number" @bind="nuevoDetalle.PrecioUnitario" placeholder="Precio Unitario" min="0.01" step="0.01" class="form-control" />
+                            <button class="btn btn-primary" @onclick="AgregarProductoDetalle">
+                                <i class="fas fa-plus"></i> Agregar
+                            </button>
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="productos-table">
+                                <thead>
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th>Cantidad</th>
+                                        <th>Precio Unitario</th>
+                                        <th>Subtotal</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @if (detallesCompra.Any())
+                                    {
+                                        @foreach (var detalle in detallesCompra)
+                                        {
+                                            var producto = productos.FirstOrDefault(p => p.codigoProducto == detalle.CodigoProducto);
+                                            <tr>
+                                                <td>@(producto?.descripcion ?? "Producto no encontrado")</td>
+                                                <td>@detalle.Cantidad</td>
+                                                <td>C$@detalle.PrecioUnitario.ToString("N2")</td>
+                                                <td>C$@((detalle.Cantidad * detalle.PrecioUnitario).ToString("N2"))</td>
+                                                <td>
+                                                    <button class="btn btn-danger btn-sm" @onclick="() => EliminarProductoDetalle(detalle)">
+                                                        <i class="fas fa-trash-alt"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <tr>
+                                            <td colspan="5" class="text-center">No hay productos agregados</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="resumen-compra">
+                        <div class="total-section">
+                            <h4>Total Compra: <span class="total-amount">C$@totalCompra.ToString("N2")</span></h4>
+                        </div>
+                        <div class="compra-actions">
+                            <button class="btn btn-secondary" @onclick="CancelarCompra">
+                                <i class="fas fa-times"></i> Cancelar
+                            </button>
+                            <button class="btn btn-success" @onclick="GuardarCompra">
+                                <i class="fas fa-save"></i> Guardar Compra
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (activeTab == "historial")
+        {
+            <div class="historial-compras card">
+                <div class="card-header">
+                    <h3><i class="fas fa-clipboard-list"></i> Historial de Compras</h3>
+                </div>
+
+                <div class="card-body">
+                    <div class="filtros">
+                        <div class="filter-group">
+                            <label><i class="fas fa-truck"></i> Proveedor:</label>
+                            <select @bind="filtroProveedor" class="form-control">
+                                <option value="0">Todos</option>
+                                @foreach (var prov in proveedores)
+                                {
+                                    <option value="@prov.idProveedor">@prov.nombre</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label><i class="fas fa-info-circle"></i> Estado:</label>
+                            <select @bind="filtroEstado" class="form-control">
+                                <option value="">Todos</option>
+                                <option value="Pendiente">Pendiente</option>
+                                <option value="Pagado">Pagado</option>
+                                <option value="Cancelado">Cancelado</option>
+                            </select>
+                        </div>
+
+                        <div class="filter-group">
+                            <label><i class="fas fa-calendar-day"></i> Desde:</label>
+                            <input type="date" @bind="filtroFechaInicio" format="yyyy-MM-dd" class="form-control" />
+                        </div>
+
+                        <div class="filter-group">
+                            <label><i class="fas fa-calendar-day"></i> Hasta:</label>
+                            <input type="date" @bind="filtroFechaFin" format="yyyy-MM-dd" class="form-control" />
+                        </div>
+
+                        <button class="btn btn-primary" @onclick="AplicarFiltros">
+                            <i class="fas fa-filter"></i> Filtrar
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="historial-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Proveedor</th>
+                                    <th>Fecha</th>
+                                    <th>Total</th>
+                                    <th>Estado</th>
+                                    <th>Método Pago</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @if (comprasFiltradas.Any())
+                                {
+                                    @foreach (var compra in comprasFiltradas)
+                                    {
+                                        <tr>
+                                            <td>@compra.idCompra</td>
+                                            <td>@compra.proveedor.nombre</td>
+                                            <td>@compra.fechaCompra.ToString("dd/MM/yyyy")</td>
+                                            <td>C$@compra.TotalCompra.ToString("N2")</td>
+                                            <td>
+                                                <span class="estado @compra.Estado.ToLower()">@compra.Estado</span>
+                                            </td>
+                                            <td>@compra.MetodoPago</td>
+                                            <td>
+                                                <button class="btn btn-info btn-sm" @onclick="() => MostrarDetalleCompra(compra.idCompra)">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button class="btn btn-warning btn-sm" @onclick="() => EditarCompra(compra.idCompra)">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <td colspan="7" class="text-center">No se encontraron compras</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    @if (showDetalleModal)
+    {
+        <div class="modal-backdrop" @onclick="CerrarDetalleModal"></div>
+        <div class="modal-container">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-file-alt"></i> Detalle de Compra #@compraSeleccionada?.idCompra</h3>
+                    <button class="close-btn" @onclick="CerrarDetalleModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="compra-info">
+                        <div class="info-item">
+                            <span class="info-label"><i class="fas fa-truck"></i> Proveedor:</span>
+                            <span class="info-value">@compraSeleccionada?.proveedor.nombre</span>
+                        </div>
+
+                        <div class="info-item">
+                            <span class="info-label"><i class="fas fa-calendar-alt"></i> Fecha:</span>
+                            <span class="info-value">@compraSeleccionada?.fechaCompra.ToString("dd/MM/yyyy")</span>
+                        </div>
+
+                        <div class="info-item">
+                            <span class="info-label"><i class="fas fa-money-bill-wave"></i> Total:</span>
+                            <span class="info-value">C$@compraSeleccionada?.TotalCompra.ToString("N2")</span>
+                        </div>
+
+                        <div class="info-item">
+                            <span class="info-label"><i class="fas fa-info-circle"></i> Estado:</span>
+                            <span class="info-value estado @compraSeleccionada?.Estado?.ToLower()">@compraSeleccionada?.Estado</span>
+                        </div>
+                    </div>
+
+                    <div class="section-title">
+                        <h4><i class="fas fa-box-open"></i> Productos:</h4>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="detalle-table">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Cantidad</th>
+                                    <th>Precio Unitario</th>
+                                    <th>Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var detalle in detallesCompraSeleccionada)
+                                {
+                                    var producto = productos.FirstOrDefault(p => p.codigoProducto == detalle.CodigoProducto);
+                                    <tr>
+                                        <td>@(producto?.descripcion ?? "Producto no encontrado")</td>
+                                        <td>@detalle.Cantidad</td>
+                                        <td>C$@detalle.PrecioUnitario.ToString("N2")</td>
+                                        <td>C$@((detalle.Cantidad * detalle.PrecioUnitario).ToString("N2"))</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" @onclick="CerrarDetalleModal">
+                        <i class="fas fa-times"></i> Cerrar
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(mensaje))
+    {
+        <div class="toast @(mensaje.Contains("✅") ? "toast-success" : "toast-error")">
+            <div class="toast-content">
+                <i class="@(mensaje.Contains("✅") ? "fas fa-check-circle" : "fas fa-exclamation-circle")"></i>
+                <span>@mensaje</span>
+            </div>
+            <button class="toast-close" @onclick="() => mensaje = null">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    }
+</div>
+
+<style>
+    /* Variables de color */
+    :root {
+        --primary-color: #1976D2;
+        --primary-light: #E3F2FD;
+        --primary-dark: #0D47A1;
+        --secondary-color: #2196F3;
+        --accent-color: #82B1FF;
+        --white: #FFFFFF;
+        --light-gray: #F5F5F5;
+        --medium-gray: #E0E0E0;
+        --dark-gray: #757575;
+        --dark: #212121;
+        --success-color: #4CAF50;
+        --error-color: #F44336;
+        --warning-color: #FF9800;
+        --info-color: #2196F3;
+    }
+
+    /* Estilos base */
+    * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        line-height: 1.6;
+        color: var(--dark);
+        background-color: #f8f9fa;
+    }
+
+    /* Contenedor principal */
+    .compras-container {
+        max-width: 100%;
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        background-color: var(--white);
+    }
+
+    /* Encabezado */
+    .app-header {
+        display: flex;
+        flex-direction: column;
+        background-color: var(--primary-color);
+        color: var(--white);
+        padding: 1rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .header-title h1 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+
+    .header-title h2 {
+        font-size: 1rem;
+        font-weight: 400;
+        opacity: 0.9;
+    }
+
+    .header-admin {
+        margin-top: 1rem;
+    }
+
+    .user-badge {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        background-color: rgba(255, 255, 255, 0.1);
+        padding: 0.5rem 1rem;
+        border-radius: 50px;
+        width: fit-content;
+    }
+
+        .user-badge i {
+            font-size: 1.2rem;
+        }
+
+    /* Pestañas */
+    .tabs {
+        display: flex;
+        background-color: var(--white);
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+        .tabs button {
+            flex: 1;
+            padding: 1rem;
+            background-color: transparent;
+            border: none;
+            border-bottom: 3px solid transparent;
+            cursor: pointer;
+            font-weight: 500;
+            color: var(--dark-gray);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+            .tabs button.active {
+                border-bottom-color: var(--primary-color);
+                color: var(--primary-color);
+                background-color: var(--primary-light);
+            }
+
+            .tabs button i {
+                font-size: 1rem;
+            }
+
+    /* Área de contenido */
+    .content-area {
+        padding: 1rem;
+    }
+
+    /* Tarjetas */
+    .card {
+        background-color: var(--white);
+        border-radius: 8px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        margin-bottom: 1.5rem;
+        overflow: hidden;
+    }
+
+    .card-header {
+        background-color: var(--primary-color);
+        color: var(--white);
+        padding: 1rem;
+    }
+
+        .card-header h3 {
+            font-size: 1.2rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+    .card-body {
+        padding: 1.5rem;
+    }
+
+    /* Formularios */
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--dark);
+        }
+
+    .form-control {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid var(--medium-gray);
+        border-radius: 4px;
+        font-size: 1rem;
+        transition: border-color 0.3s;
+    }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+        }
+
+    select.form-control {
+        appearance: none;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 1rem;
+    }
+
+    /* Botones */
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+        background-color: var(--primary-color);
+        color: var(--white);
+    }
+
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+        }
+
+    .btn-secondary {
+        background-color: var(--medium-gray);
+        color: var(--dark);
+    }
+
+        .btn-secondary:hover {
+            background-color: #d0d0d0;
+        }
+
+    .btn-success {
+        background-color: var(--success-color);
+        color: var(--white);
+    }
+
+        .btn-success:hover {
+            background-color: #3d8b40;
+        }
+
+    .btn-danger {
+        background-color: var(--error-color);
+        color: var(--white);
+    }
+
+        .btn-danger:hover {
+            background-color: #d32f2f;
+        }
+
+    .btn-info {
+        background-color: var(--info-color);
+        color: var(--white);
+    }
+
+        .btn-info:hover {
+            background-color: #0b7dda;
+        }
+
+    .btn-warning {
+        background-color: var(--warning-color);
+        color: var(--white);
+    }
+
+        .btn-warning:hover {
+            background-color: #e68a00;
+        }
+
+    .btn-sm {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+    }
+
+    /* Sección de información de compra */
+    .compra-info {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    /* Sección de agregar producto */
+    .agregar-producto {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr auto;
+        gap: 0.75rem;
+        margin-bottom: 1.5rem;
+    }
+
+    /* Tablas */
+    .table-responsive {
+        overflow-x: auto;
+        margin-bottom: 1.5rem;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 1rem;
+    }
+
+    th, td {
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid var(--medium-gray);
+    }
+
+    th {
+        background-color: var(--light-gray);
+        font-weight: 600;
+        color: var(--dark);
+    }
+
+    tr:hover {
+        background-color: var(--light-gray);
+    }
+
+    .text-center {
+        text-align: center;
+    }
+
+    /* Sección de resumen */
+    .resumen-compra {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--medium-gray);
+    }
+
+    .total-section h4 {
+        font-size: 1.2rem;
+        font-weight: 500;
+    }
+
+    .total-amount {
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+
+    .compra-actions {
+        display: flex;
+        gap: 0.75rem;
+    }
+
+    /* Filtros */
+    .filtros {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+        align-items: end;
+    }
+
+    .filter-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+        color: var(--dark);
+    }
+
+    /* Estados */
+    .estado {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 50px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+        .estado.pendiente {
+            background-color: #FFF3E0;
+            color: #E65100;
+        }
+
+        .estado.pagado {
+            background-color: #E8F5E9;
+            color: #2E7D32;
+        }
+
+        .estado.cancelado {
+            background-color: #FFEBEE;
+            color: #C62828;
+        }
+
+    /* Modal */
+    .modal-backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+    }
+
+    .modal-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1001;
+        padding: 1rem;
+    }
+
+    .modal-content {
+        background-color: var(--white);
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        width: 100%;
+        max-width: 800px;
+        max-height: 90vh;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem;
+        background-color: var(--primary-color);
+        color: var(--white);
+    }
+
+        .modal-header h3 {
+            font-size: 1.25rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+    .close-btn {
+        background: none;
+        border: none;
+        color: var(--white);
+        font-size: 1.5rem;
+        cursor: pointer;
+        padding: 0.25rem;
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+        flex-grow: 1;
+    }
+
+    .info-item {
+        display: flex;
+        margin-bottom: 1rem;
+    }
+
+    .info-label {
+        font-weight: 500;
+        min-width: 120px;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .info-value {
+        flex-grow: 1;
+    }
+
+    .section-title {
+        margin: 1.5rem 0 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--medium-gray);
+    }
+
+        .section-title h4 {
+            font-size: 1.1rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+    .modal-footer {
+        padding: 1rem 1.5rem;
+        display: flex;
+        justify-content: flex-end;
+        border-top: 1px solid var(--medium-gray);
+    }
+
+    /* Toast de mensajes */
+    .toast {
+        position: fixed;
+        bottom: 1.5rem;
+        right: 1.5rem;
+        min-width: 300px;
+        max-width: 90%;
+        padding: 1rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        z-index: 1100;
+        animation: slideIn 0.3s ease-out;
+    }
+
+    .toast-success {
+        background-color: var(--success-color);
+        color: var(--white);
+    }
+
+    .toast-error {
+        background-color: var(--error-color);
+        color: var(--white);
+    }
+
+    .toast-content {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .toast i {
+        font-size: 1.25rem;
+    }
+
+    .toast-close {
+        background: none;
+        border: none;
+        color: inherit;
+        cursor: pointer;
+        margin-left: 1rem;
+        padding: 0.25rem;
+    }
+
+    /* Animaciones */
+    @@keyframes slideIn {
+        from {
+            transform: translateY(100%);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    /* Responsive design */
+    @@media (max-width: 768px) {
+        .compra-info {
+            grid-template-columns: 1fr;
+        }
+
+        .agregar-producto {
+            grid-template-columns: 1fr;
+        }
+
+        .filtros {
+            grid-template-columns: 1fr;
+        }
+
+        .resumen-compra {
+            flex-direction: column;
+            gap: 1rem;
+            align-items: stretch;
+        }
+
+        .compra-actions {
+            flex-direction: column;
+        }
+
+        .modal-container {
+            padding: 0.5rem;
+        }
+
+        .info-item {
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+    }
+
+    @@media (max-width: 576px) {
+        .tabs button span {
+            display: none;
+        }
+
+        .tabs button i {
+            font-size: 1.2rem;
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        .modal-body {
+            padding: 1rem;
+        }
+
+        .modal-header {
+            padding: 1rem;
+        }
+
+        .modal-footer {
+            padding: 0.75rem 1rem;
+        }
+    }
+</style>
+
+<!-- Font Awesome para íconos -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />

@@ -1,0 +1,423 @@
+﻿@* <nav class="sidebar">
+    <div class="sidebar-container">
+        <!-- Logo y nombre de la empresa -->
+        <div class="sidebar-header">
+            <div class="sidebar-brand">DISTRIBUIDORA LACENTRAL</div>
+        </div>
+
+        <!-- Lista de navegación principal -->
+        <ul class="nav-menu">
+            <!-- Home -->
+            <li class="nav-item">
+                <a href="Home" class="nav-link @(GetActiveClass("Home"))">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z" />
+                    </svg>
+                    <span class="nav-text">Inicio</span>
+                </a>
+            </li>
+
+            <!-- Facturación -->
+            <li class="nav-item">
+                <a href="Facturacion" class="nav-link @(GetActiveClass("Facturacion"))">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M3,3H21V7H3V3M4,8H20V21H4V8M9.5,11A0.5,0.5 0 0,0 9,11.5V13H15V11.5A0.5,0.5 0 0,0 14.5,11H9.5Z" />
+                    </svg>
+                    <span class="nav-text">Facturación</span>
+                </a>
+            </li>
+
+            <!-- Gestión de Usuarios -->
+            <li class="nav-item">
+                <a href="GestionUsuarios" class="nav-link @(GetActiveClass("GestionUsuarios"))">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M16,17V14H9V10H16V7L21,12L16,17M14,2A2,2 0 0,1 16,4V6H14V4H5V20H14V18H16V20A2,2 0 0,1 14,22H5A2,2 0 0,1 3,20V4A2,2 0 0,1 5,2H14Z" />
+                    </svg>
+                    <span class="nav-text">Usuarios</span>
+                </a>
+            </li>
+
+            <!-- Gestión de Clientes -->
+            <li class="nav-item">
+                <a href="GestionClientes" class="nav-link @(GetActiveClass("GestionClientes"))">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z" />
+                    </svg>
+                    <span class="nav-text">Clientes</span>
+                </a>
+            </li>
+
+            <!-- Gestión de Inventario -->
+            <li class="nav-item">
+                <a href="GestionInventario" class="nav-link @(GetActiveClass("GestionInventario"))">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12,13A5,5 0 0,1 7,8H9A3,3 0 0,0 12,11A3,3 0 0,0 15,8H17A5,5 0 0,1 12,13M12,3A3,3 0 0,1 15,6H9A3,3 0 0,1 12,3M19,6H17A5,5 0 0,0 12,1A5,5 0 0,0 7,6H5C3.89,6 3,6.89 3,8V20A2,2 0 0,0 5,22H19A2,2 0 0,0 21,20V8C21,6.89 20.1,6 19,6Z" />
+                    </svg>
+                    <span class="nav-text">Inventario</span>
+                </a>
+            </li>
+
+            <!-- Gestión de Proveedores -->
+            <li class="nav-item">
+                <a href="GestionProveedor" class="nav-link @(GetActiveClass("GestionProveedor"))">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M18,6H16V5A1,1 0 0,0 15,4H9A1,1 0 0,0 8,5V6H6A1,1 0 0,0 5,7V19A1,1 0 0,0 6,20H18A1,1 0 0,0 19,19V7A1,1 0 0,0 18,6M14,6H10V5.5C10,5.22 10.22,5 10.5,5H13.5C13.78,5 14,5.22 14,5.5V6Z" />
+                    </svg>
+                    <span class="nav-text">Proveedores</span>
+                </a>
+            </li>
+
+            <!-- Pedidos y Negociosxdfghj -->
+            <li class="nav-item">
+                <a href="PedidosNegocios" class="nav-link @(GetActiveClass("PedidosNegocios"))">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M13,9H18.5L13,3.5V9M6,2H14L20,8V20A2,2 0 0,1 18,22H6C4.89,22 4,21.1 4,20V4C4,2.89 4.89,2 6,2M15,18V16H6V18H15M18,14V12H6V14H18Z" />
+                    </svg>
+                    <span class="nav-text">Pedidos</span>
+                </a>
+            </li>
+
+            <!-- Login -->
+            <li class="nav-item">
+                <a href="" class="nav-link @(GetActiveClass(""))">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M10,17V14H3V10H10V7L15,12L10,17M10,2H19A2,2 0 0,1 21,4V20A2,2 0 0,1 19,22H10A2,2 0 0,1 8,20V18H10V20H19V4H10V6H8V4A2,2 0 0,1 10,2Z" />
+                    </svg>
+                    <span class="nav-text">Login</span>
+                </a>
+            </li>
+
+            <!-- Registro -->
+            <li class="nav-item">
+                <a href="Registro" class="nav-link @(GetActiveClass("Registro"))">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" />
+                    </svg>
+                    <span class="nav-text">Registro</span>
+                </a>
+            </li>
+        </ul>
+
+        <!-- Pie del sidebar -->
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="user-avatar">AD</div>
+                <div class="user-details">
+                    <div class="user-name">Administrador</div>
+                    <div class="user-role">Supervisor</div>
+                </div>
+            </div>
+            <button class="logout-btn">
+                <svg viewBox="0 0 24 24">
+                    <path d="M16,17V14H9V10H16V7L21,12L16,17M14,2A2,2 0 0,1 16,4V6H14V4H5V20H14V18H16V20A2,2 0 0,1 14,22H5A2,2 0 0,1 3,20V4A2,2 0 0,1 5,2H14Z" />
+                </svg>
+            </button>
+        </div>
+    </div>
+</nav>
+
+<style>
+    /* Variables de color */
+    :root {
+        --sidebar-bg: rgba(26, 46, 90, 0.9);
+        --sidebar-border: rgba(255, 255, 255, 0.1);
+        --primary-color: #E30613;
+        --secondary-color: #FFC72C;
+        --text-color: #FFFFFF;
+        --light-text: rgba(255, 255, 255, 0.8);
+        --active-bg: rgba(227, 6, 19, 0.2);
+        --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    /* Estructura principal del sidebar */
+    .sidebar {
+        width: 280px;
+        height: 100vh;
+        position: fixed;
+        left: 0;
+        top: 0;
+        background: var(--sidebar-bg);
+        backdrop-filter: blur(10px);
+        border-right: 1px solid var(--sidebar-border);
+        display: flex;
+        flex-direction: column;
+        z-index: 1000;
+        transition: var(--transition);
+    }
+
+    .sidebar-container {
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+
+    /* Encabezado del sidebar */
+    .sidebar-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 15px 0;
+        margin-bottom: 20px;
+        border-bottom: 1px solid var(--sidebar-border);
+    }
+
+    .sidebar-brand {
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--text-color);
+        white-space: nowrap;
+    }
+
+    /* Lista de navegación */
+    .nav-menu {
+        list-style: none;
+        flex-grow: 1;
+        overflow-y: auto;
+        padding-right: 5px;
+        margin: 0;
+    }
+
+    /* Elementos del menú */
+    .nav-item {
+        margin-bottom: 8px;
+    }
+
+    .nav-link {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 15px;
+        color: var(--light-text);
+        text-decoration: none;
+        border-radius: 8px;
+        transition: var(--transition);
+        position: relative;
+    }
+
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-color);
+        }
+
+        .nav-link.active {
+            background: var(--active-bg);
+            color: var(--text-color);
+        }
+
+        .nav-link svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+    .nav-text {
+        font-size: 1rem;
+    }
+
+    /* Pie del sidebar */
+    .sidebar-footer {
+        padding-top: 20px;
+        border-top: 1px solid var(--sidebar-border);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .user-info {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .user-avatar {
+        width: 40px;
+        height: 40px;
+        background: var(--primary-color);
+        color: var(--text-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        font-weight: bold;
+        font-size: 1rem;
+    }
+
+    .user-details {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .user-name {
+        font-size: 0.9rem;
+        font-weight: 600;
+    }
+
+    .user-role {
+        font-size: 0.8rem;
+        color: var(--light-text);
+    }
+
+    .logout-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--light-text);
+        transition: var(--transition);
+    }
+
+        .logout-btn:hover {
+            color: var(--text-color);
+        }
+
+        .logout-btn svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+    /* Adaptabilidad móvil */
+    @@media (max-width: 768px) {
+        .sidebar
+
+    {
+        width: 220px;
+        height: 100vh;
+        position: fixed;
+        top: 0;
+        left: 0;
+        transform: translateX(-100%);
+        transition: var(--transition);
+    }
+
+    .sidebar.active {
+        transform: translateX(0);
+    }
+
+    .sidebar-container {
+        padding: 15px;
+    }
+
+    .sidebar-header {
+        justify-content: center;
+    }
+
+    .sidebar-brand {
+        font-size: 1rem;
+    }
+
+    .nav-text {
+        font-size: 0.9rem;
+    }
+
+    .user-avatar {
+        width: 35px;
+        height: 35px;
+        font-size: 0.9rem;
+    }
+
+    }
+</style>
+
+
+@code {
+    // Método para determinar la clase activa
+    private string GetActiveClass(string page)
+    {
+        // Aquí deberías implementar la lógica para determinar qué página está activa
+        // Por ejemplo, comparando con la URL actual
+        return ""; // Retorna "active" si es la página actual
+    }
+}
+ *@
+
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="">Distribuidora_La_Central</a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="flex-column">
+
+        <!-- INICIO Y AUTENTICACIÓN -->
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="home" Match="NavLinkMatch.All">
+                <i class="fas fa-house"></i>&nbsp;Home
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="">
+                <i class="fas fa-sign-in-alt"></i>&nbsp;Login
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="registro">
+                <i class="fas fa-user-plus"></i>&nbsp;Registro
+            </NavLink>
+        </div>
+
+        <!-- VENTAS Y CRÉDITOS -->
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="factura">
+                <i class="fas fa-file-invoice"></i>&nbsp;Factura
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="GestionCreditos">
+                <i class="fas fa-file-invoice-dollar"></i>&nbsp;Créditos
+            </NavLink>
+        </div>
+
+        <!-- CLIENTES Y PROVEEDORES -->
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="gestionclientes">
+                <i class="fas fa-users"></i>&nbsp;Clientes
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="gestionproveedor">
+                <i class="fas fa-truck"></i>&nbsp;Proveedores
+            </NavLink>
+        </div>
+
+        <!-- INVENTARIO Y COMPRAS -->
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="gestioninventario">
+                <i class="fas fa-boxes-stacked"></i>&nbsp;Inventario
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="GestionCompras">
+                <i class="fas fa-shopping-cart"></i>&nbsp;Compras
+            </NavLink>
+        </div>
+
+        <!-- ABONOS Y TRASLADO -->
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="Abonos">
+                <i class="fas fa-money-check-alt"></i>&nbsp;Abonos
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="TrasladoDTO">
+                <i class="fas fa-truck-moving"></i>&nbsp;Traslado
+            </NavLink>
+        </div>
+
+        <!-- USUARIOS / ADMIN -->
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="gestionusuarios">
+                <i class="fas fa-user-cog"></i>&nbsp;Usuarios
+            </NavLink>
+        </div>
+
+    </nav>
+</div>
+
+
