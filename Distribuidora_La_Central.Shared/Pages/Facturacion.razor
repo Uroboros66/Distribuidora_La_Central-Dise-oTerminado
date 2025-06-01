@@ -10,231 +10,231 @@
 <style>
     /* Estilos optimizados para Android */
     :root {
-        --primary-color: #1A2E5A;
-        --secondary-color: #E30613;
-        --accent-color: #FFC72C;
-        --text-color: #333333;
-        --light-text: #777777;
-        --border-color: #E0E0E0;
-        --bg-color: #F5F9FF;
+    --primary-color: #1A2E5A;
+    --secondary-color: #E30613;
+    --accent-color: #FFC72C;
+    --text-color: #333333;
+    --light-text: #777777;
+    --border-color: #E0E0E0;
+    --bg-color: #F5F9FF;
     }
 
     * {
-        box-sizing: border-box;
-        margin: 0;
-        padding: 0;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
     }
 
     .invoice-container {
-        font-family: 'Roboto', sans-serif;
-        padding: 10px;
-        background-color: var(--bg-color);
-        min-height: 100vh;
+    font-family: 'Roboto', sans-serif;
+    padding: 10px;
+    background-color: var(--bg-color);
+    min-height: 100vh;
     }
 
     .invoice-header {
-        margin-bottom: 15px;
+    margin-bottom: 15px;
     }
 
-        .invoice-header h2 {
-            color: var(--primary-color);
-            font-size: 1.4rem;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+    .invoice-header h2 {
+    color: var(--primary-color);
+    font-size: 1.4rem;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    }
 
     .invoice-tabs {
-        display: flex;
-        gap: 5px;
-        overflow-x: auto;
-        padding-bottom: 3px;
+    display: flex;
+    gap: 5px;
+    overflow-x: auto;
+    padding-bottom: 3px;
     }
 
-        .invoice-tabs button {
-            background: none;
-            border: none;
-            padding: 8px 12px;
-            font-size: 0.9rem;
-            white-space: nowrap;
-            border-radius: 4px;
-            background-color: #f0f0f0;
-        }
+    .invoice-tabs button {
+    background: none;
+    border: none;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    border-radius: 4px;
+    background-color: #f0f0f0;
+    }
 
-            .invoice-tabs button.active {
-                background-color: var(--primary-color);
-                color: white;
-            }
+    .invoice-tabs button.active {
+    background-color: var(--primary-color);
+    color: white;
+    }
 
     .invoice-card {
-        background: white;
-        border-radius: 8px;
-        padding: 15px;
-        margin-bottom: 15px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
 
     .form-section {
-        margin-bottom: 20px;
+    margin-bottom: 20px;
     }
 
-        .form-section h4 {
-            font-size: 1.1rem;
-            margin-bottom: 10px;
-            color: var(--primary-color);
-        }
+    .form-section h4 {
+    font-size: 1.1rem;
+    margin-bottom: 10px;
+    color: var(--primary-color);
+    }
 
     .form-grid {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
     }
 
     .input-group {
-        margin-bottom: 10px;
+    margin-bottom: 10px;
     }
 
-        .input-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-size: 0.9rem;
-            color: var(--text-color);
-        }
+    .input-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 0.9rem;
+    color: var(--text-color);
+    }
 
     .input-style, .select-style {
-        width: 100%;
-        padding: 8px 12px;
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
-        font-size: 0.9rem;
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 0.9rem;
     }
 
     .product-form-grid {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
     }
 
     .btn-add-product {
-        background-color: var(--primary-color);
-        color: white;
-        border: none;
-        border-radius: 4px;
-        padding: 8px 12px;
-        font-size: 0.9rem;
-        margin-top: 5px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 0.9rem;
+    margin-top: 5px;
     }
 
     .products-table-container {
-        overflow-x: auto;
-        margin-top: 15px;
+    overflow-x: auto;
+    margin-top: 15px;
     }
 
     .products-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.85rem;
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
     }
 
-        .products-table th {
-            background-color: #f5f5f5;
-            padding: 8px;
-            text-align: left;
-        }
+    .products-table th {
+    background-color: #f5f5f5;
+    padding: 8px;
+    text-align: left;
+    }
 
-        .products-table td {
-            padding: 8px;
-            border-bottom: 1px solid var(--border-color);
-        }
+    .products-table td {
+    padding: 8px;
+    border-bottom: 1px solid var(--border-color);
+    }
 
     .form-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        margin-top: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 15px;
     }
 
     .btn-save, .btn-cancel, .btn-payment {
-        padding: 10px;
-        border-radius: 4px;
-        font-size: 0.9rem;
-        border: none;
+    padding: 10px;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    border: none;
     }
 
     .btn-save {
-        background-color: var(--primary-color);
-        color: white;
+    background-color: var(--primary-color);
+    color: white;
     }
 
     .btn-cancel {
-        background-color: #f0f0f0;
-        color: var(--text-color);
+    background-color: #f0f0f0;
+    color: var(--text-color);
     }
 
     .btn-payment {
-        background-color: var(--secondary-color);
-        color: white;
+    background-color: var(--secondary-color);
+    color: white;
     }
 
     /* Modal optimizado para Android */
     .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background-color: rgba(0,0,0,0.5);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 1000;
-        padding: 15px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    padding: 15px;
     }
 
     .payment-modal {
-        background: white;
-        border-radius: 8px;
-        width: 100%;
-        max-width: 500px;
-        padding: 15px;
+    background: white;
+    border-radius: 8px;
+    width: 100%;
+    max-width: 500px;
+    padding: 15px;
     }
 
     .modal-header {
-        display: flex;
-        justify-content: space-between;
-        margin-bottom: 15px;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 15px;
     }
 
     .close-modal {
-        background: none;
-        border: none;
-        font-size: 1.2rem;
+    background: none;
+    border: none;
+    font-size: 1.2rem;
     }
 
     /* Media queries para tablets */
     @@media (min-width: 600px) {
-        .form-grid {
-            flex-direction: row;
-            flex-wrap: wrap;
-        }
+    .form-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+    }
 
-            .form-grid .input-group {
-                flex: 1 1 45%;
-            }
+    .form-grid .input-group {
+    flex: 1 1 45%;
+    }
 
-        .product-form-grid {
-            flex-direction: row;
-            flex-wrap: wrap;
-        }
+    .product-form-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+    }
 
-            .product-form-grid .input-group {
-                flex: 1 1 45%;
-            }
+    .product-form-grid .input-group {
+    flex: 1 1 45%;
+    }
 
-        .form-actions {
-            flex-direction: row;
-        }
+    .form-actions {
+    flex-direction: row;
+    }
     }
 </style>
 
@@ -368,7 +368,7 @@
                                             <td>@((detalle.cantidad * detalle.precioUnitario).ToString("F2"))</td>
                                             <td>
                                                 <button type="button" class="btn-remove-product"
-                                                        @onclick="@(() => EliminarProducto(detalle.codigoProducto))">
+                                                @onclick="@(() => EliminarProducto(detalle.codigoProducto))">
                                                     <i class="fas fa-trash-alt"></i>
                                                 </button>
                                             </td>
@@ -449,7 +449,7 @@
                             <div class="input-group">
                                 <label><i class="fas fa-hand-holding-usd"></i> Abono</label>
                                 <InputNumber @bind-Value="abono.montoAbono" class="input-style"
-                                             @oninput="ActualizarEstadoFactura" min="0" max="@saldoActual" />
+                                @oninput="ActualizarEstadoFactura" min="0" max="@saldoActual" />
                                 <ValidationMessage For="@(() => abono.montoAbono)" />
                             </div>
 
@@ -479,12 +479,64 @@
 
     @if (activeTab == "historial")
     {
+
         <div class="invoice-card">
             <div class="card-header">
                 <h3><i class="fas fa-history"></i> Historial de Facturas</h3>
                 <div class="search-box">
                     <i class="fas fa-search"></i>
                     <input type="text" placeholder="Buscar facturas..." />
+                </div>
+            </div>
+            <div class="metrics-panel">
+                <div class="metric-card total">
+                    <div class="metric-icon">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                    </div>
+                    <div class="metric-content">
+                        <div class="metric-value">@totalFacturas</div>
+                        <div class="metric-label">Facturas totales</div>
+                        <div class="metric-trend @GetTrendClass(facturaTrend)">
+                            <i class="fas @(facturaTrend > 0 ? "fa-arrow-up" : "fa-arrow-down")"></i>
+                            @Math.Abs(facturaTrend)%
+                        </div>
+                    </div>
+                </div>
+
+                <div class="metric-card pending">
+                    <div class="metric-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="metric-content">
+                        <div class="metric-value">@facturasPendientes</div>
+                        <div class="metric-label">Por cobrar</div>
+                        <div class="metric-amount">@totalPendiente.ToString("C")</div>
+                    </div>
+                </div>
+
+                <div class="metric-card paid">
+                    <div class="metric-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="metric-content">
+                        <div class="metric-value">@facturasPagadas</div>
+                        <div class="metric-label">Pagadas</div>
+                        <div class="metric-subtext">Últimos 30 días: @facturasPagadasUltimoMes</div>
+                    </div>
+                </div>
+
+                <div class="metric-card revenue">
+                    <div class="metric-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <div class="metric-content">
+                        <div class="metric-value">@totalFacturado.ToString("C")</div>
+                        <div class="metric-label">Facturación total</div>
+                        <div class="progress-container">
+                            <div class="progress-bar" style="width: @(porcentajePagado + "%")"></div>
+                            <span>@porcentajePagado% pagado</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -548,6 +600,18 @@
 }
 
 @code {
+    private int totalFacturas = 0;
+    private int facturasPendientes = 0;
+    private int facturasPagadas = 0;
+    private int facturasPagadasUltimoMes = 0;
+    private decimal totalFacturado = 0;
+    private decimal totalPendiente = 0;
+    private decimal porcentajePagado = 0;
+    private int facturaTrend = 0; // Porcentaje de cambio respecto al período anterior
+    private int totalPurchases = 0;
+    private int pendingInvoices = 0;
+    private int paidInvoices = 0;
+    private decimal totalAmount = 0.00m;
     private List<Producto> productos = new();
     private Producto productoSeleccionado = new(); 
     private DetalleFactura detalleFactura = new();
@@ -589,6 +653,60 @@
         await CargarProductos();
         await CargarClientes();
         await CargarFacturas();
+        await LoadSummaryData();
+        await CalcularMetricas();
+    }
+
+
+    private async Task CalcularMetricas()
+    {
+        var hoy = DateTime.Today;
+        var inicioMesActual = new DateTime(hoy.Year, hoy.Month, 1);
+        var inicioMesAnterior = inicioMesActual.AddMonths(-1);
+
+        var facturasMesActual = facturas.Where(f => f.fecha >= inicioMesActual).ToList();
+        var facturasMesAnterior = facturas.Where(f => f.fecha >= inicioMesAnterior && f.fecha < inicioMesActual).ToList();
+
+        totalFacturas = facturas.Count;
+        facturasPendientes = facturas.Count(f => f.estado == "Pendiente");
+        facturasPagadas = facturas.Count(f => f.estado == "Pagado");
+        facturasPagadasUltimoMes = facturas.Count(f => f.estado == "Pagado" && f.fecha >= inicioMesActual);
+
+        totalFacturado = facturas.Sum(f => f.totalFactura);
+        totalPendiente = facturas.Where(f => f.estado == "Pendiente").Sum(f => f.saldo);
+
+        porcentajePagado = totalFacturas > 0 ?
+            Math.Round((decimal)facturasPagadas / totalFacturas * 100, 1) : 0;
+
+        // Calcular tendencia
+        var countMesActual = facturasMesActual.Count;
+        var countMesAnterior = facturasMesAnterior.Count;
+
+        if (countMesAnterior > 0)
+        {
+            facturaTrend = (int)Math.Round(
+                ((decimal)(countMesActual - countMesAnterior) / countMesAnterior) * 100,
+                0
+            );
+        }
+
+        StateHasChanged();
+    }
+
+    private string GetTrendClass(int trend)
+    {
+        return trend >= 0 ? "trend-up" : "trend-down";
+    }
+
+    private async Task LoadSummaryData()
+    {
+        // Obtener datos de la API
+        var facturas = await Http.GetFromJsonAsync<List<Factura>>("api/Factura/GetAllFacturas") ?? new List<Factura>();
+
+        totalPurchases = facturas.Count;
+        pendingInvoices = facturas.Count(f => f.estado == "Pendiente");
+        paidInvoices = facturas.Count(f => f.estado == "Pagado");
+        totalAmount = facturas.Sum(f => f.totalFactura);
     }
 
     private async Task CargarProductos()
@@ -972,6 +1090,18 @@
     {
         public int codigoFactura { get; set; }
         public string message { get; set; }
+    }
+
+    private async Task UpdateSummary()
+    {
+        var facturas = await Http.GetFromJsonAsync<List<Factura>>("api/Factura/GetAllFacturas") ?? new List<Factura>();
+
+        totalPurchases = facturas.Count;
+        pendingInvoices = facturas.Count(f => f.estado == "Pendiente");
+        paidInvoices = facturas.Count(f => f.estado == "Pagado");
+        totalAmount = facturas.Sum(f => f.totalFactura);
+
+        StateHasChanged(); // Forzar actualización de la UI
     }
 }
 
@@ -1507,32 +1637,273 @@
             color: var(--primary-light);
         }
 
+    .summary-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 20px;
+        margin-bottom: 25px;
+    }
+
+    .summary-card {
+        background: white;
+        border-radius: 10px;
+        padding: 20px 15px;
+        text-align: center;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        transition: transform 0.3s ease;
+    }
+
+        .summary-card:hover {
+            transform: translateY(-5px);
+        }
+
+    .summary-icon {
+        width: 50px;
+        height: 50px;
+        margin: 0 auto 12px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+    }
+
+        .summary-icon.total {
+            background-color: rgba(26, 46, 90, 0.1);
+            color: #1A2E5A;
+        }
+
+        .summary-icon.pending {
+            background-color: rgba(255, 193, 7, 0.1);
+            color: #FFC107;
+        }
+
+        .summary-icon.paid {
+            background-color: rgba(76, 175, 80, 0.1);
+            color: #4CAF50;
+        }
+
+        .summary-icon.amount {
+            background-color: rgba(227, 6, 19, 0.1);
+            color: #E30613;
+        }
+
+    .summary-value {
+        font-size: 1.8rem;
+        font-weight: bold;
+        color: #1A2E5A;
+        margin-bottom: 5px;
+    }
+
+    .summary-label {
+        font-size: 0.95rem;
+        color: #666;
+        font-weight: 500;
+    }
+
     /* Responsive */
     @@media (max-width: 768px) {
-        .product-form-grid {
+        .summary-cards {
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .summary-cards {
             grid-template-columns: 1fr;
         }
 
-        .form-actions {
-            flex-direction: column;
+        .summary-card {
+            padding: 15px 10px;
         }
 
-        .btn-payment {
-            margin-left: 0;
-            margin-top: 10px;
-        }
-
-        .card-header {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 15px;
-        }
-
-        .search-box {
-            width: 100%;
+        .summary-value {
+            font-size: 1.5rem;
         }
     }
+
+    .metrics-panel {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .metric-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+        border-left: 4px solid;
+        display: flex;
+        gap: 1.2rem;
+        align-items: center;
+    }
+
+        .metric-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        }
+
+    .metric-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.4rem;
+    }
+
+    .metric-content {
+        flex: 1;
+    }
+
+    .metric-value {
+        font-size: 1.6rem;
+        font-weight: 700;
+        line-height: 1;
+        margin-bottom: 0.2rem;
+    }
+
+    .metric-label {
+        font-size: 0.9rem;
+        color: #64748B;
+        font-weight: 500;
+        margin-bottom: 0.3rem;
+    }
+
+    .metric-subtext, .metric-amount {
+        font-size: 0.8rem;
+        color: #94A3B8;
+        font-weight: 400;
+    }
+
+    .metric-trend {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 12px;
+        display: inline-block;
+        margin-top: 0.3rem;
+    }
+
+    .progress-container {
+        margin-top: 0.5rem;
+        height: 6px;
+        background: #F1F5F9;
+        border-radius: 3px;
+        position: relative;
+    }
+
+    .progress-bar {
+        height: 100%;
+        border-radius: 3px;
+        position: absolute;
+        top: 0;
+        left: 0;
+    }
+
+    /* Colores específicos para cada tarjeta */
+    .metric-card.total {
+        border-left-color: #3B82F6;
+    }
+
+        .metric-card.total .metric-icon {
+            background-color: #EFF6FF;
+            color: #3B82F6;
+        }
+
+        .metric-card.total .metric-value {
+            color: #1E40AF;
+        }
+
+    .metric-card.pending {
+        border-left-color: #F59E0B;
+    }
+
+        .metric-card.pending .metric-icon {
+            background-color: #FEF3C7;
+            color: #F59E0B;
+        }
+
+        .metric-card.pending .metric-value {
+            color: #92400E;
+        }
+
+        .metric-card.pending .progress-bar {
+            background-color: #F59E0B;
+        }
+
+    .metric-card.paid {
+        border-left-color: #10B981;
+    }
+
+        .metric-card.paid .metric-icon {
+            background-color: #D1FAE5;
+            color: #10B981;
+        }
+
+        .metric-card.paid .metric-value {
+            color: #065F46;
+        }
+
+    .metric-card.revenue {
+        border-left-color: #8B5CF6;
+    }
+
+        .metric-card.revenue .metric-icon {
+            background-color: #EDE9FE;
+            color: #8B5CF6;
+        }
+
+        .metric-card.revenue .metric-value {
+            color: #5B21B6;
+        }
+
+        .metric-card.revenue .progress-bar {
+            background-color: #8B5CF6;
+        }
+
+    /* Indicadores de tendencia */
+    .trend-up {
+        background-color: #D1FAE5;
+        color: #065F46;
+    }
+
+    .trend-down {
+        background-color: #FEE2E2;
+        color: #B91C1C;
+    }
+
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .metrics-panel {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .metrics-panel {
+            grid-template-columns: 1fr;
+        }
+
+        .metric-card {
+            padding: 1.2rem;
+        }
+
+        .metric-icon {
+            width: 45px;
+            height: 45px;
+            font-size: 1.2rem;
+        }
+
+        .metric-value {
+            font-size: 1.4rem;
+        }
 </style>
 
 <!-- Agregar Font Awesome para los íconos -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
+

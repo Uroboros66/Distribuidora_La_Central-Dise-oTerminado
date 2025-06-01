@@ -19,43 +19,193 @@ namespace Distribuidora_La_Central.Web.Controllers
             _configuration = configuration;
         }
 
-        [HttpGet]
-        [Route("GetAllCompras")]
-        public string GetCompras()
+
+        [HttpPut]
+        [Route("MarcarComoPagada/{id}")]
+        public IActionResult MarcarComoPagada(int id)
         {
-            SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection").ToString());
-            SqlDataAdapter da = new SqlDataAdapter("SELECT * FROM Compra;", con);
-            DataTable dt = new DataTable();
-            da.Fill(dt);
-            List<Compra> compraList = new List<Compra>();
-            Response response = new Response();
-
-            if (dt.Rows.Count > 0)
+            try
             {
-                for (int i = 0; i < dt.Rows.Count; i++)
-                {
-                    Compra compra = new Compra();
-                    compra.idCompra = Convert.ToInt32(dt.Rows[i]["idCompra"]);
-                    compra.idProveedor = Convert.ToInt32(dt.Rows[i]["idProveedor"]);
-                    compra.fechaCompra = Convert.ToDateTime(dt.Rows[i]["fechaCompra"]);
-                    compra.TotalCompra = Convert.ToDecimal(dt.Rows[i]["TotalCompra"]);
-                    compra.Estado = Convert.ToString(dt.Rows[i]["Estado"]);
+                using SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                con.Open();
 
-                    compra.FechaPago = dt.Rows[i]["FechaPago"] != DBNull.Value ? Convert.ToDateTime(dt.Rows[i]["FechaPago"]) : (DateTime?)null;
-                    compra.MetodoPago = Convert.ToString(dt.Rows[i]["MetodoPago"]);
-                    compraList.Add(compra);
+                string query = @"UPDATE Compra 
+                        SET Estado = 'Pagado', 
+                            FechaPago = @fechaPago
+                        WHERE idCompra = @idCompra";
+
+                using SqlCommand cmd = new SqlCommand(query, con);
+                cmd.Parameters.AddWithValue("@idCompra", id);
+                cmd.Parameters.AddWithValue("@fechaPago", DateTime.Now);
+
+                int rowsAffected = cmd.ExecuteNonQuery();
+
+                if (rowsAffected > 0)
+                {
+                    return Ok(new { message = "Compra marcada como pagada correctamente" });
+                }
+                else
+                {
+                    return NotFound(new { message = "Compra no encontrada" });
                 }
             }
-
-            if (compraList.Count > 0)
-                return JsonConvert.SerializeObject(compraList);
-            else
+            catch (Exception ex)
             {
-                response.StatusCode = 100;
-                response.ErrorMessage = "No data found";
-                return JsonConvert.SerializeObject(response);
+                return StatusCode(500, new { error = $"Error al marcar compra como pagada: {ex.Message}" });
             }
         }
+
+
+        [HttpGet]
+        [Route("GetFilteredCompras")]
+        public IActionResult GetFilteredCompras(
+    [FromQuery] int? proveedorId = null,
+    [FromQuery] string? estado = null,
+    [FromQuery] string? fechaInicio = null,
+    [FromQuery] string? fechaFin = null)
+        {
+            try
+            {
+                using SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                con.Open();
+
+                // Construir la consulta base con JOIN para incluir información del proveedor
+                string query = @"SELECT c.*, p.nombre AS ProveedorNombre 
+                        FROM Compra c
+                        LEFT JOIN Proveedor p ON c.idProveedor = p.idProveedor
+                        WHERE 1=1";
+
+                // Lista de parámetros
+                var parameters = new List<SqlParameter>();
+
+                // Añadir filtros según los parámetros recibidos
+                if (proveedorId.HasValue && proveedorId > 0)
+                {
+                    query += " AND c.idProveedor = @proveedorId";
+                    parameters.Add(new SqlParameter("@proveedorId", proveedorId));
+                }
+
+                if (!string.IsNullOrEmpty(estado))
+                {
+                    query += " AND c.Estado = @estado";
+                    parameters.Add(new SqlParameter("@estado", estado));
+                }
+
+                if (DateTime.TryParse(fechaInicio, out DateTime fechaInicioParsed))
+                {
+                    query += " AND c.fechaCompra >= @fechaInicio";
+                    parameters.Add(new SqlParameter("@fechaInicio", fechaInicioParsed));
+                }
+
+                if (DateTime.TryParse(fechaFin, out DateTime fechaFinParsed))
+                {
+                    // Añadir un día para incluir todas las compras del día final
+                    query += " AND c.fechaCompra < @fechaFin";
+                    parameters.Add(new SqlParameter("@fechaFin", fechaFinParsed.AddDays(1)));
+                }
+
+                query += " ORDER BY c.fechaCompra DESC";
+
+                using SqlCommand cmd = new SqlCommand(query, con);
+                cmd.Parameters.AddRange(parameters.ToArray());
+
+                SqlDataAdapter da = new SqlDataAdapter(cmd);
+                DataTable dt = new DataTable();
+                da.Fill(dt);
+
+                List<CompraConProveedor> compras = new List<CompraConProveedor>();
+
+                if (dt.Rows.Count > 0)
+                {
+                    for (int i = 0; i < dt.Rows.Count; i++)
+                    {
+                        var compra = new CompraConProveedor
+                        {
+                            idCompra = Convert.ToInt32(dt.Rows[i]["idCompra"]),
+                            idProveedor = Convert.ToInt32(dt.Rows[i]["idProveedor"]),
+                            fechaCompra = Convert.ToDateTime(dt.Rows[i]["fechaCompra"]),
+                            TotalCompra = Convert.ToDecimal(dt.Rows[i]["TotalCompra"]),
+                            Estado = Convert.ToString(dt.Rows[i]["Estado"]),
+                            FechaPago = dt.Rows[i]["FechaPago"] != DBNull.Value ? Convert.ToDateTime(dt.Rows[i]["FechaPago"]) : (DateTime?)null,
+                            MetodoPago = Convert.ToString(dt.Rows[i]["MetodoPago"]),
+                            Proveedor = new ProveedorInfo
+                            {
+                                idProveedor = Convert.ToInt32(dt.Rows[i]["idProveedor"]),
+                                nombre = Convert.ToString(dt.Rows[i]["ProveedorNombre"])
+                            }
+                        };
+                        compras.Add(compra);
+                    }
+                }
+
+                return Ok(compras);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = $"Error al obtener compras filtradas: {ex.Message}" });
+            }
+        }
+
+        // Clases adicionales para la respuesta
+        public class CompraConProveedor : Compra
+        {
+            public ProveedorInfo Proveedor { get; set; }
+        }
+
+        public class ProveedorInfo
+        {
+            public int idProveedor { get; set; }
+            public string nombre { get; set; }
+        }
+        [HttpGet]
+        [Route("GetAllCompras")]
+        public IActionResult GetAllCompras()
+        {
+            try
+            {
+                using SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                con.Open();
+
+                string query = @"SELECT c.*, p.nombre AS ProveedorNombre 
+                         FROM Compra c
+                         LEFT JOIN Proveedor p ON c.idProveedor = p.idProveedor
+                         ORDER BY c.fechaCompra DESC";
+
+                using SqlCommand cmd = new SqlCommand(query, con);
+                SqlDataAdapter da = new SqlDataAdapter(cmd);
+                DataTable dt = new DataTable();
+                da.Fill(dt);
+
+                List<CompraConProveedor> compraList = new List<CompraConProveedor>();
+
+                for (int i = 0; i < dt.Rows.Count; i++)
+                {
+                    var compra = new CompraConProveedor
+                    {
+                        idCompra = Convert.ToInt32(dt.Rows[i]["idCompra"]),
+                        idProveedor = Convert.ToInt32(dt.Rows[i]["idProveedor"]),
+                        fechaCompra = Convert.ToDateTime(dt.Rows[i]["fechaCompra"]),
+                        TotalCompra = Convert.ToDecimal(dt.Rows[i]["TotalCompra"]),
+                        Estado = Convert.ToString(dt.Rows[i]["Estado"]),
+                        FechaPago = dt.Rows[i]["FechaPago"] != DBNull.Value ? Convert.ToDateTime(dt.Rows[i]["FechaPago"]) : (DateTime?)null,
+                        MetodoPago = Convert.ToString(dt.Rows[i]["MetodoPago"]),
+                        Proveedor = new ProveedorInfo
+                        {
+                            idProveedor = Convert.ToInt32(dt.Rows[i]["idProveedor"]),
+                            nombre = Convert.ToString(dt.Rows[i]["ProveedorNombre"])
+                        }
+                    };
+                    compraList.Add(compra);
+                }
+
+                return Ok(compraList);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = $"Error al obtener compras: {ex.Message}" });
+            }
+        }
+
         [HttpPost]
         [Route("AgregarCompra")]
         public IActionResult AgregarCompra([FromBody] CompraConDetalles compraConDetalles)

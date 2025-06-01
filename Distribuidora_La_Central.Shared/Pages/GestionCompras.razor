@@ -3,6 +3,10 @@
 @using System.Net.Http.Json
 
 @code {
+    private int totalCompras = 0;
+    private int comprasPendientes = 0;
+    private int comprasPagadas = 0;
+    private decimal totalGeneral = 0.00m;
     // Variables de estado
     private string activeTab = "registro";
     private List<Compra> compras = new();
@@ -16,6 +20,28 @@
     private DetalleCompra nuevoDetalle = new();
     private string? mensaje;
     private bool showDetalleModal = false;
+
+
+
+
+    private string GetMetodoPagoIcon(string metodo)
+    {
+        return metodo switch
+        {
+            "Efectivo" => "fas fa-money-bill-wave",
+            "Transferencia" => "fas fa-exchange-alt",
+            "Tarjeta" => "fas fa-credit-card",
+            "Cheque" => "fas fa-file-invoice-dollar",
+            _ => "fas fa-question-circle"
+        };
+    }
+
+    private async Task ImprimirCompra(int idCompra)
+    {
+        mensaje = $"Preparando compra #{idCompra} para impresión (simulación)";
+        await Task.Delay(500);
+    }
+
 
     // Filtros
     private int filtroProveedor = 0;
@@ -41,10 +67,39 @@
             // Cargar compras
             compras = await Http.GetFromJsonAsync<List<Compra>>("api/Compra/GetAllCompras") ?? new();
             comprasFiltradas = compras;
+
+            // Calcular métricas
+            totalCompras = compras.Count;
+            comprasPendientes = compras.Count(c => c.Estado == "Pendiente");
+            comprasPagadas = compras.Count(c => c.Estado == "Pagado");
+            totalGeneral = compras.Sum(c => c.TotalCompra);
         }
         catch (Exception ex)
         {
             mensaje = $"Error al cargar datos iniciales: {ex.Message}";
+        }
+    }
+
+    private async Task MarcarComoPagada(int idCompra)
+    {
+        try
+        {
+            var response = await Http.PutAsync($"api/Compra/MarcarComoPagada/{idCompra}", null);
+
+            if (response.IsSuccessStatusCode)
+            {
+                mensaje = "✅ Compra marcada como pagada correctamente";
+                await CargarDatosIniciales();
+                CerrarDetalleModal();
+            }
+            else
+            {
+                mensaje = "Error al marcar la compra como pagada";
+            }
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"Error: {ex.Message}";
         }
     }
 
@@ -282,6 +337,7 @@
     }
 }
 
+
 <!-- Interfaz de usuario rediseñada -->
 <div class="compras-container">
     <header class="app-header">
@@ -428,6 +484,46 @@
                     <h3><i class="fas fa-clipboard-list"></i> Historial de Compras</h3>
                 </div>
 
+
+                <div class="resumen-compras">
+                    <div class="metric-card metric-total">
+                        <div class="metric-icon-container">
+                            <i class="fas fa-shopping-cart"></i>
+                        </div>
+                        <div class="metric-content">
+                            <div class="metric-value">@totalCompras</div>
+                            <div class="metric-label">COMPRAS TOTALES</div>
+                        </div>
+                    </div>
+                    <div class="metric-card metric-pendientes">
+                        <div class="metric-icon-container">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="metric-content">
+                            <div class="metric-value">@comprasPendientes</div>
+                            <div class="metric-label">PENDIENTES</div>
+                        </div>
+                    </div>
+                    <div class="metric-card metric-pagadas">
+                        <div class="metric-icon-container">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="metric-content">
+                            <div class="metric-value">@comprasPagadas</div>
+                            <div class="metric-label">PAGADAS</div>
+                        </div>
+                    </div>
+                    <div class="metric-card metric-totalgeneral">
+                        <div class="metric-icon-container">
+                            <i class="fas fa-money-bill-wave"></i>
+                        </div>
+                        <div class="metric-content">
+                            <div class="metric-value">C$@totalGeneral.ToString("N2")</div>
+                            <div class="metric-label">TOTAL GENERAL</div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="card-body">
                     <div class="filtros">
                         <div class="filter-group">
@@ -440,6 +536,7 @@
                                 }
                             </select>
                         </div>
+
 
                         <div class="filter-group">
                             <label><i class="fas fa-info-circle"></i> Estado:</label>
@@ -465,6 +562,8 @@
                             <i class="fas fa-filter"></i> Filtrar
                         </button>
                     </div>
+
+
 
                     <div class="table-responsive">
                         <table class="historial-table">
@@ -493,13 +592,26 @@
                                                 <span class="estado @compra.Estado.ToLower()">@compra.Estado</span>
                                             </td>
                                             <td>@compra.MetodoPago</td>
-                                            <td>
-                                                <button class="btn btn-info btn-sm" @onclick="() => MostrarDetalleCompra(compra.idCompra)">
-                                                    <i class="fas fa-eye"></i>
+                                            <td class="actions-cell">
+                                                <!-- Ver detalle -->
+                                                <button class="btn btn-view" @onclick="() => MostrarDetalleCompra(compra.idCompra)" title="Ver detalle">
+                                                    👁
                                                 </button>
-                                                <button class="btn btn-warning btn-sm" @onclick="() => EditarCompra(compra.idCompra)">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
+
+                                                @if (compra.Estado == "Pendiente")
+                                                {
+                                                    <!-- Editar -->
+                                                    <button class="btn btn-edit" @onclick="() => EditarCompra(compra.idCompra)" title="Editar">
+                                                        ✏
+                                                    </button>
+
+                                                    <!-- Marcar como pagada -->
+                                                    <button class="btn btn-complete" @onclick="() => MarcarComoPagada(compra.idCompra)" title="Marcar como pagada">
+                                                        ✅
+                                                    </button>
+                                                }
+
+
                                             </td>
                                         </tr>
                                     }
@@ -520,73 +632,91 @@
 
     @if (showDetalleModal)
     {
-        <div class="modal-backdrop" @onclick="CerrarDetalleModal"></div>
-        <div class="modal-container">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3><i class="fas fa-file-alt"></i> Detalle de Compra #@compraSeleccionada?.idCompra</h3>
-                    <button class="close-btn" @onclick="CerrarDetalleModal">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-
-                <div class="modal-body">
-                    <div class="compra-info">
-                        <div class="info-item">
-                            <span class="info-label"><i class="fas fa-truck"></i> Proveedor:</span>
-                            <span class="info-value">@compraSeleccionada?.proveedor.nombre</span>
+        <div class="modal-overlay">
+            <div class="modal-wrapper">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h2>Distribuidora_La_Central</h2>
+                        <h3>Detalle de Compra #@compraSeleccionada?.idCompra</h3>
+                        <div class="status-line">
+                            <span class="estado-badge @compraSeleccionada?.Estado?.ToLower()">@compraSeleccionada?.Estado</span>
+                            <span class="fecha">@compraSeleccionada?.fechaCompra.ToString("dd/MM/yyyy HH:mm")</span>
                         </div>
-
-                        <div class="info-item">
-                            <span class="info-label"><i class="fas fa-calendar-alt"></i> Fecha:</span>
-                            <span class="info-value">@compraSeleccionada?.fechaCompra.ToString("dd/MM/yyyy")</span>
-                        </div>
-
-                        <div class="info-item">
-                            <span class="info-label"><i class="fas fa-money-bill-wave"></i> Total:</span>
-                            <span class="info-value">C$@compraSeleccionada?.TotalCompra.ToString("N2")</span>
-                        </div>
-
-                        <div class="info-item">
-                            <span class="info-label"><i class="fas fa-info-circle"></i> Estado:</span>
-                            <span class="info-value estado @compraSeleccionada?.Estado?.ToLower()">@compraSeleccionada?.Estado</span>
-                        </div>
+                        <hr class="divider">
                     </div>
 
-                    <div class="section-title">
-                        <h4><i class="fas fa-box-open"></i> Productos:</h4>
-                    </div>
+                    <div class="modal-body">
+                        <div class="info-section">
+                            <h4>Proveedor</h4>
+                            <p><strong>@compraSeleccionada?.proveedor.nombre</strong></p>
+                        </div>
 
-                    <div class="table-responsive">
-                        <table class="detalle-table">
-                            <thead>
+                        <div class="payment-info">
+                            <table class="payment-table">
                                 <tr>
-                                    <th>Producto</th>
-                                    <th>Cantidad</th>
-                                    <th>Precio Unitario</th>
-                                    <th>Subtotal</th>
+                                    <td>Método de Pago</td>
+                                    <td><strong>@compraSeleccionada?.MetodoPago</strong></td>
                                 </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var detalle in detallesCompraSeleccionada)
-                                {
-                                    var producto = productos.FirstOrDefault(p => p.codigoProducto == detalle.CodigoProducto);
-                                    <tr>
-                                        <td>@(producto?.descripcion ?? "Producto no encontrado")</td>
-                                        <td>@detalle.Cantidad</td>
-                                        <td>C$@detalle.PrecioUnitario.ToString("N2")</td>
-                                        <td>C$@((detalle.Cantidad * detalle.PrecioUnitario).ToString("N2"))</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                                <tr>
+                                    <td>Total Compra</td>
+                                    <td><strong>C$ @compraSeleccionada?.TotalCompra.ToString("N2")</strong></td>
+                                </tr>
+                            </table>
+                        </div>
 
-                <div class="modal-footer">
-                    <button class="btn btn-secondary" @onclick="CerrarDetalleModal">
-                        <i class="fas fa-times"></i> Cerrar
-                    </button>
+                        <hr class="divider">
+
+                        <div class="products-section">
+                            <h4>Productos</h4>
+                            <table class="products-table">
+                                <thead>
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th>Código</th>
+                                        <th>Cantidad</th>
+                                        <th>P. Unitario</th>
+                                        <th>Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var detalle in detallesCompraSeleccionada)
+                                    {
+                                        var producto = productos.FirstOrDefault(p => p.codigoProducto == detalle.CodigoProducto);
+                                        <tr>
+                                            <td>@(producto?.descripcion ?? "Producto no encontrado")</td>
+                                            <td>@detalle.CodigoProducto</td>
+                                            <td>@detalle.Cantidad</td>
+                                            <td>C$ @detalle.PrecioUnitario.ToString("N2")</td>
+                                            <td>C$ @((detalle.Cantidad * detalle.PrecioUnitario).ToString("N2"))</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="4" class="text-right"><strong>Total:</strong></td>
+                                        <td><strong>C$ @compraSeleccionada?.TotalCompra.ToString("N2")</strong></td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+
+                        <hr class="divider">
+
+                        <div class="modal-actions">
+                            @if (compraSeleccionada?.Estado == "Pendiente")
+                            {
+                                <button class="btn btn-primary" @onclick="() => MarcarComoPagada(compraSeleccionada.idCompra)">
+                                    <i class="fas fa-check-circle"></i> Marcar como Pagada
+                                </button>
+                            }
+                            <button class="btn btn-print" @onclick="() => ImprimirCompra(compraSeleccionada.idCompra)">
+                                <i class="fas fa-print"></i> Imprimir
+                            </button>
+                            <button class="btn btn-secondary" @onclick="CerrarDetalleModal">
+                                <i class="fas fa-times"></i> Cerrar
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -607,6 +737,186 @@
 </div>
 
 <style>
+    /* Estilos para el modal */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    .modal-container {
+        max-width: 90%;
+        max-height: 90vh;
+        width: 800px;
+        overflow: auto;
+    }
+
+    .modal-content {
+        background-color: var(--white);
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem;
+        background-color: var(--primary-color);
+        color: var(--white);
+        border-top-left-radius: 8px;
+        border-top-right-radius: 8px;
+    }
+
+    .modal-title h3 {
+        margin: 0;
+        font-size: 1.25rem;
+    }
+
+    .compra-status {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-top: 0.5rem;
+        font-size: 0.9rem;
+    }
+
+    .estado-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 50px;
+        font-weight: 500;
+    }
+
+        .estado-badge.pendiente {
+            background-color: #FFF3E0;
+            color: #E65100;
+        }
+
+        .estado-badge.pagado {
+            background-color: #E8F5E9;
+            color: #2E7D32;
+        }
+
+    .fecha {
+        opacity: 0.9;
+    }
+
+    .close-btn {
+        background: none;
+        border: none;
+        color: var(--white);
+        font-size: 1.5rem;
+        cursor: pointer;
+        padding: 0;
+        line-height: 1;
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+    }
+
+    .compra-info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .info-card {
+        background-color: var(--light-gray);
+        padding: 1rem;
+        border-radius: 8px;
+    }
+
+        .info-card h4 {
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--dark-gray);
+        }
+
+        .info-card p {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+    .section-title {
+        margin: 1.5rem 0 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid var(--medium-gray);
+        font-size: 1.1rem;
+    }
+
+    .productos-table-container {
+        overflow-x: auto;
+        margin-bottom: 1.5rem;
+    }
+
+    .productos-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+        .productos-table th,
+        .productos-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--medium-gray);
+        }
+
+        .productos-table th {
+            background-color: var(--light-gray);
+            font-weight: 500;
+        }
+
+        .productos-table tfoot td {
+            font-weight: 500;
+            background-color: var(--light-gray);
+        }
+
+    .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+        padding-top: 1rem;
+        border-top: 1px solid var(--medium-gray);
+    }
+
+    .btn-print {
+        background-color: #607D8B;
+        color: white;
+    }
+
+        .btn-print:hover {
+            background-color: #455A64;
+        }
+
+    @@media (max-width: 768px) {
+        .modal-container
+
+    {
+        width: 95%;
+    }
+
+    .compra-info-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .modal-actions {
+        flex-direction: column;
+    }
+
+    }
     /* Variables de color */
     :root {
         --primary-color: #1976D2;
@@ -1196,6 +1506,462 @@
         .modal-footer {
             padding: 0.75rem 1rem;
         }
+    }
+
+    /* Panel de resumen */
+    .resumen-compras {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        padding: 1rem;
+        background-color: var(--white);
+        margin-bottom: 1rem;
+    }
+
+    .metric-card {
+        background-color: var(--light-gray);
+        border-radius: 8px;
+        padding: 1.5rem;
+        text-align: center;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        transition: transform 0.3s ease;
+    }
+
+        .metric-card:hover {
+            transform: translateY(-3px);
+        }
+
+    .metric-icon {
+        font-size: 1.5rem;
+        color: var(--primary-color);
+        margin-bottom: 0.5rem;
+    }
+
+    .metric-value {
+        font-size: 2rem;
+        font-weight: 600;
+        color: var(--primary-color);
+        margin-bottom: 0.5rem;
+    }
+
+    .metric-label {
+        font-size: 0.9rem;
+        color: var(--dark-gray);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    @@media (max-width: 768px) {
+        .resumen-compras {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .resumen-compras {
+            grid-template-columns: 1fr;
+        }
+    }
+
+
+
+    /* Estilos para el modal centrado */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+    }
+
+    .modal-wrapper {
+        width: 100%;
+        max-width: 600px;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modal-content {
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        width: 100%;
+    }
+
+    .modal-header {
+        padding: 20px;
+        text-align: center;
+    }
+
+        .modal-header h2 {
+            margin: 0;
+            color: #333;
+            font-size: 1.5rem;
+        }
+
+        .modal-header h3 {
+            margin: 10px 0;
+            color: #444;
+            font-size: 1.3rem;
+        }
+
+    .status-line {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 15px;
+        margin: 10px 0;
+    }
+
+    .estado-badge {
+        padding: 5px 15px;
+        border-radius: 20px;
+        font-weight: 500;
+        font-size: 0.9rem;
+    }
+
+        .estado-badge.pendiente {
+            background-color: #FFF3E0;
+            color: #E65100;
+        }
+
+        .estado-badge.pagado {
+            background-color: #E8F5E9;
+            color: #2E7D32;
+        }
+
+    .fecha {
+        color: #666;
+        font-size: 0.9rem;
+    }
+
+    .divider {
+        border: none;
+        border-top: 1px solid #e0e0e0;
+        margin: 15px 0;
+    }
+
+    .modal-body {
+        padding: 0 20px 20px;
+    }
+
+    .info-section, .products-section {
+        margin-bottom: 20px;
+    }
+
+        .info-section h4, .products-section h4 {
+            margin: 0 0 10px 0;
+            color: #444;
+            font-size: 1.1rem;
+        }
+
+    .payment-table {
+        width: 100%;
+        margin: 15px 0;
+    }
+
+        .payment-table td {
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+            .payment-table td:first-child {
+                width: 40%;
+                color: #666;
+            }
+
+    .products-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 15px 0;
+    }
+
+        .products-table th, .products-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .products-table th {
+            background-color: #f5f5f5;
+            color: #444;
+            font-weight: 500;
+        }
+
+        .products-table tfoot td {
+            font-weight: 500;
+            background-color: #f5f5f5;
+        }
+
+    .text-right {
+        text-align: right;
+    }
+
+    .modal-actions {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .btn-primary {
+        background-color: #1976D2;
+        color: white;
+    }
+
+    .btn-secondary {
+        background-color: #757575;
+        color: white;
+    }
+
+    .btn-print {
+        background-color: #607D8B;
+        color: white;
+    }
+
+    @@media (max-width: 600px) {
+        .modal-wrapper
+
+    {
+        max-width: 95%;
+    }
+
+    .products-table {
+        font-size: 0.9rem;
+    }
+
+        .products-table th,
+        .products-table td {
+            padding: 8px 5px;
+        }
+
+    .modal-actions {
+        flex-direction: column;
+    }
+
+    .btn {
+        justify-content: center;
+    }
+
+    }
+
+
+
+    /* Estilos profesionales para las tarjetas de métricas */
+    .resumen-compras {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1.5rem;
+        padding: 1rem 0;
+        margin-bottom: 2rem;
+    }
+
+    .metric-card {
+        border-radius: 12px;
+        padding: 1.5rem;
+        display: flex;
+        align-items: center;
+        background: white;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        border-left: 4px solid;
+        position: relative;
+        overflow: hidden;
+    }
+
+        .metric-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+        }
+
+        .metric-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
+            z-index: 1;
+        }
+
+    .metric-icon-container {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1.2rem;
+        flex-shrink: 0;
+        font-size: 1.5rem;
+        color: white;
+        position: relative;
+        z-index: 2;
+    }
+
+    .metric-content {
+        position: relative;
+        z-index: 2;
+    }
+
+    .metric-value {
+        font-size: 1.8rem;
+        font-weight: 700;
+        margin-bottom: 0.25rem;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .metric-label {
+        font-size: 0.8rem;
+        opacity: 0.8;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        font-weight: 600;
+    }
+
+    /* Colores específicos para cada tarjeta */
+    .metric-total {
+        border-left-color: #1976D2;
+    }
+
+        .metric-total .metric-icon-container {
+            background: linear-gradient(135deg, #1976D2 0%, #64B5F6 100%);
+        }
+
+        .metric-total .metric-value {
+            color: #1976D2;
+        }
+
+    .metric-pendientes {
+        border-left-color: #FB8C00;
+    }
+
+        .metric-pendientes .metric-icon-container {
+            background: linear-gradient(135deg, #FB8C00 0%, #FFB74D 100%);
+        }
+
+        .metric-pendientes .metric-value {
+            color: #FB8C00;
+        }
+
+    .metric-pagadas {
+        border-left-color: #43A047;
+    }
+
+        .metric-pagadas .metric-icon-container {
+            background: linear-gradient(135deg, #43A047 0%, #81C784 100%);
+        }
+
+        .metric-pagadas .metric-value {
+            color: #43A047;
+        }
+
+    .metric-totalgeneral {
+        border-left-color: #8E24AA;
+    }
+
+        .metric-totalgeneral .metric-icon-container {
+            background: linear-gradient(135deg, #8E24AA 0%, #BA68C8 100%);
+        }
+
+        .metric-totalgeneral .metric-value {
+            color: #8E24AA;
+        }
+
+    /* Efecto de onda al hacer hover */
+    .metric-card:hover::after {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 5px;
+        height: 5px;
+        background: rgba(255, 255, 255, 0.5);
+        opacity: 0;
+        border-radius: 100%;
+        transform: scale(1, 1) translate(-50%, -50%);
+        transform-origin: 50% 50%;
+        animation: ripple 1s ease-out;
+    }
+
+    @@keyframes ripple {
+        0%
+
+    {
+        transform: scale(0, 0);
+        opacity: 0.5;
+    }
+
+    100% {
+        transform: scale(20, 20);
+        opacity: 0;
+    }
+
+    }
+
+    /* Responsive */
+    @@media (max-width: 992px) {
+        .resumen-compras
+
+    {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+
+    .metric-value {
+        font-size: 1.6rem;
+    }
+
+    }
+
+    @@media (max-width: 768px) {
+        .resumen-compras
+
+    {
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+    }
+
+    .metric-card {
+        padding: 1.2rem;
+    }
+
+    .metric-icon-container {
+        width: 50px;
+        height: 50px;
+        font-size: 1.3rem;
+    }
+
+    }
+
+    @@media (max-width: 480px) {
+        .resumen-compras
+
+    {
+        grid-template-columns: 1fr;
+    }
+
+    .metric-value {
+        font-size: 1.8rem;
+    }
+
     }
 </style>
 
