@@ -23,7 +23,6 @@ namespace Distribuidora_La_Central.Web.Controllers
         {
             SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection").ToString());
 
-            // Buscar por nombre y código de acceso
             SqlDataAdapter da = new SqlDataAdapter("SELECT * FROM Usuario WHERE nombre = @nombre AND codigoAcceso = @codigoAcceso", con);
             da.SelectCommand.Parameters.AddWithValue("@nombre", usuario.nombre);
             da.SelectCommand.Parameters.AddWithValue("@codigoAcceso", usuario.codigoAcceso);
@@ -33,13 +32,23 @@ namespace Distribuidora_La_Central.Web.Controllers
 
             if (dt.Rows.Count > 0)
             {
-                return Ok("Inicio de sesión exitoso");
+                // Crear objeto Usuario desde los datos del DataTable
+                Usuario usuarioEncontrado = new Usuario
+                {
+                    idUsuario = Convert.ToInt32(dt.Rows[0]["idUsuario"]),
+                    nombre = dt.Rows[0]["nombre"].ToString(),
+                    rol = dt.Rows[0]["rol"].ToString(),
+                    codigoAcceso = dt.Rows[0]["codigoAcceso"].ToString()
+                };
+
+                return Ok(usuarioEncontrado); // ✅ Devuelve un JSON con el usuario
             }
             else
             {
                 return Unauthorized("Nombre o código incorrecto");
             }
         }
+
 
 
         [HttpPost("Registrar")]

@@ -1,4 +1,5 @@
-﻿using Distribuidora_La_Central.Web.Models;
+﻿
+using Distribuidora_La_Central.Web.Models;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
@@ -129,7 +130,7 @@ namespace Distribuidora_La_Central.Web.Controllers
                         cmd.Parameters.AddWithValue("@fechaInicial", facturaConDetalles.Factura.fecha);
                         cmd.Parameters.AddWithValue("@fechaFinal", fechaVencimiento);
                         cmd.Parameters.AddWithValue("@saldoMaximo", facturaConDetalles.Factura.totalFactura);
-                        
+
                         cmd.Parameters.AddWithValue("@estado", "Activo");
 
                         cmd.ExecuteNonQuery();
@@ -148,6 +149,94 @@ namespace Distribuidora_La_Central.Web.Controllers
             {
                 return StatusCode(500, new { error = "Error de conexión", details = ex.Message });
             }
+        }
+
+        // En el controlador FacturaController.cs
+        [HttpGet("GetFacturasFiltradas")]
+        public IActionResult GetFacturasFiltradas(
+            [FromQuery] int? codigoCliente = null,
+            [FromQuery] DateTime? fechaDesde = null,
+            [FromQuery] DateTime? fechaHasta = null,
+            [FromQuery] decimal? montoMinimo = null,
+            [FromQuery] decimal? montoMaximo = null,
+            [FromQuery] string tipo = null,
+            [FromQuery] string estado = null,
+            [FromQuery] bool? pendientes = null)
+        {
+            using SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+            string query = "SELECT * FROM Factura WHERE 1=1";
+            var parameters = new List<SqlParameter>();
+
+            if (codigoCliente.HasValue)
+            {
+                query += " AND codigoCliente = @codigoCliente";
+                parameters.Add(new SqlParameter("@codigoCliente", codigoCliente));
+            }
+
+            if (fechaDesde.HasValue)
+            {
+                query += " AND fecha >= @fechaDesde";
+                parameters.Add(new SqlParameter("@fechaDesde", fechaDesde));
+            }
+
+            if (fechaHasta.HasValue)
+            {
+                query += " AND fecha <= @fechaHasta";
+                parameters.Add(new SqlParameter("@fechaHasta", fechaHasta));
+            }
+
+            if (montoMinimo.HasValue)
+            {
+                query += " AND totalFactura >= @montoMinimo";
+                parameters.Add(new SqlParameter("@montoMinimo", montoMinimo));
+            }
+
+            if (montoMaximo.HasValue)
+            {
+                query += " AND totalFactura <= @montoMaximo";
+                parameters.Add(new SqlParameter("@montoMaximo", montoMaximo));
+            }
+
+            if (!string.IsNullOrEmpty(tipo))
+            {
+                query += " AND tipo = @tipo";
+                parameters.Add(new SqlParameter("@tipo", tipo));
+            }
+
+            if (!string.IsNullOrEmpty(estado))
+            {
+                query += " AND estado = @estado";
+                parameters.Add(new SqlParameter("@estado", estado));
+            }
+
+            if (pendientes.HasValue && pendientes.Value)
+            {
+                query += " AND saldo > 0";
+            }
+
+            SqlDataAdapter da = new SqlDataAdapter(query, con);
+            da.SelectCommand.Parameters.AddRange(parameters.ToArray());
+
+            DataTable dt = new DataTable();
+            da.Fill(dt);
+
+            List<Factura> facturas = new List<Factura>();
+            foreach (DataRow row in dt.Rows)
+            {
+                facturas.Add(new Factura
+                {
+                    codigoFactura = Convert.ToInt32(row["codigoFactura"]),
+                    codigoCliente = Convert.ToInt32(row["codigoCliente"]),
+                    fecha = Convert.ToDateTime(row["fecha"]),
+                    totalFactura = Convert.ToDecimal(row["totalFactura"]),
+                    saldo = Convert.ToDecimal(row["saldo"]),
+                    tipo = row["tipo"].ToString(),
+                    estado = row["estado"]?.ToString()
+                });
+            }
+
+            return Ok(facturas);
         }
 
         [HttpDelete("EliminarFactura/{id}")]

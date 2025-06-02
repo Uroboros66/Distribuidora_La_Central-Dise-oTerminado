@@ -1,6 +1,7 @@
 using Distribuidora_La_Central.Web.Components;
 using Distribuidora_La_Central.Shared.Services;
 using Distribuidora_La_Central.Web.Services;
+using System.Net.NetworkInformation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,6 +18,9 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddSingleton<IFormFactor, FormFactor>();
 
 builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("http://localhost:5282") });
+
+
+builder.Services.AddSingleton<AppState>();
 
 var app = builder.Build();
 

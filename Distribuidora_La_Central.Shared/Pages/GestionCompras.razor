@@ -227,35 +227,45 @@
     // Métodos para historial de compras
     private void AplicarFiltros()
     {
-        comprasFiltradas = compras;
+        // Aplicar filtros a la lista completa de compras
+        var comprasFiltradasTemp = compras;
 
         if (filtroProveedor > 0)
         {
-            comprasFiltradas = comprasFiltradas
+            comprasFiltradasTemp = comprasFiltradasTemp
                 .Where(c => c.proveedor.idProveedor == filtroProveedor)
                 .ToList();
         }
 
         if (!string.IsNullOrEmpty(filtroEstado))
         {
-            comprasFiltradas = comprasFiltradas
+            comprasFiltradasTemp = comprasFiltradasTemp
                 .Where(c => c.Estado == filtroEstado)
                 .ToList();
         }
 
         if (filtroFechaInicio.HasValue)
         {
-            comprasFiltradas = comprasFiltradas
+            comprasFiltradasTemp = comprasFiltradasTemp
                 .Where(c => c.fechaCompra >= filtroFechaInicio.Value)
                 .ToList();
         }
 
         if (filtroFechaFin.HasValue)
         {
-            comprasFiltradas = comprasFiltradas
+            comprasFiltradasTemp = comprasFiltradasTemp
                 .Where(c => c.fechaCompra <= filtroFechaFin.Value)
                 .ToList();
         }
+
+        // Actualizar la lista filtrada para la tabla
+        comprasFiltradas = comprasFiltradasTemp;
+
+        // Recalcular métricas basadas en los filtros
+        totalCompras = comprasFiltradas.Count;
+        comprasPendientes = comprasFiltradas.Count(c => c.Estado == "Pendiente");
+        comprasPagadas = comprasFiltradas.Count(c => c.Estado == "Pagado");
+        totalGeneral = comprasFiltradas.Sum(c => c.TotalCompra);
     }
 
     private async Task MostrarDetalleCompra(int idCompra)

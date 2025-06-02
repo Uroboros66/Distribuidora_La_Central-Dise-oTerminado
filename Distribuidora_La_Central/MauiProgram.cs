@@ -43,6 +43,9 @@ public static class MauiProgram
         // REGISTRAR HttpService
         builder.Services.AddScoped<HttpService>();
 
+
+        builder.Services.AddSingleton<AppState>();
+
         return builder.Build();
     }
 

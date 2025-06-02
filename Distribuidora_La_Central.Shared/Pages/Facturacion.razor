@@ -1,240 +1,659 @@
-﻿@page "/factura"
+﻿﻿
+@page "/factura"
 @inject HttpClient Http
 @using Distribuidora_La_Central.Shared.Models
-@using Newtonsoft.Json;
+@using System.Text.Json;
 @using System.Net.Http
 @using System.Net.Http.Json
-@using Newtonsoft.Json
-@using Newtonsoft.Json.Linq
+
 
 <style>
     /* Estilos optimizados para Android */
     :root {
-    --primary-color: #1A2E5A;
-    --secondary-color: #E30613;
-    --accent-color: #FFC72C;
-    --text-color: #333333;
-    --light-text: #777777;
-    --border-color: #E0E0E0;
-    --bg-color: #F5F9FF;
+        --primary-color: #1A2E5A;
+        --secondary-color: #E30613;
+        --accent-color: #FFC72C;
+        --text-color: #333333;
+        --light-text: #777777;
+        --border-color: #E0E0E0;
+        --bg-color: #F5F9FF;
     }
 
     * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
     }
 
     .invoice-container {
-    font-family: 'Roboto', sans-serif;
-    padding: 10px;
-    background-color: var(--bg-color);
-    min-height: 100vh;
+        font-family: 'Roboto', sans-serif;
+        padding: 10px;
+        background-color: var(--bg-color);
+        min-height: 100vh;
     }
 
     .invoice-header {
-    margin-bottom: 15px;
+        margin-bottom: 15px;
     }
 
-    .invoice-header h2 {
-    color: var(--primary-color);
-    font-size: 1.4rem;
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    }
+        .invoice-header h2 {
+            color: var(--primary-color);
+            font-size: 1.4rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
 
     .invoice-tabs {
-    display: flex;
-    gap: 5px;
-    overflow-x: auto;
-    padding-bottom: 3px;
+        display: flex;
+        gap: 5px;
+        overflow-x: auto;
+        padding-bottom: 3px;
     }
 
-    .invoice-tabs button {
-    background: none;
-    border: none;
-    padding: 8px 12px;
-    font-size: 0.9rem;
-    white-space: nowrap;
-    border-radius: 4px;
-    background-color: #f0f0f0;
-    }
+        .invoice-tabs button {
+            background: none;
+            border: none;
+            padding: 8px 12px;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            border-radius: 4px;
+            background-color: #f0f0f0;
+        }
 
-    .invoice-tabs button.active {
-    background-color: var(--primary-color);
-    color: white;
-    }
+            .invoice-tabs button.active {
+                background-color: var(--primary-color);
+                color: white;
+            }
 
     .invoice-card {
-    background: white;
-    border-radius: 8px;
-    padding: 15px;
-    margin-bottom: 15px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
 
     .form-section {
-    margin-bottom: 20px;
+        margin-bottom: 20px;
     }
 
-    .form-section h4 {
-    font-size: 1.1rem;
-    margin-bottom: 10px;
-    color: var(--primary-color);
-    }
+        .form-section h4 {
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
 
     .form-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
     }
 
     .input-group {
-    margin-bottom: 10px;
+        margin-bottom: 10px;
     }
 
-    .input-group label {
-    display: block;
-    margin-bottom: 5px;
-    font-size: 0.9rem;
-    color: var(--text-color);
-    }
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+            color: var(--text-color);
+        }
 
     .input-style, .select-style {
-    width: 100%;
-    padding: 8px 12px;
-    border: 1px solid var(--border-color);
-    border-radius: 4px;
-    font-size: 0.9rem;
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        font-size: 0.9rem;
     }
 
     .product-form-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
     }
 
     .btn-add-product {
-    background-color: var(--primary-color);
-    color: white;
-    border: none;
-    border-radius: 4px;
-    padding: 8px 12px;
-    font-size: 0.9rem;
-    margin-top: 5px;
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 8px 12px;
+        font-size: 0.9rem;
+        margin-top: 5px;
     }
 
     .products-table-container {
-    overflow-x: auto;
-    margin-top: 15px;
+        overflow-x: auto;
+        margin-top: 15px;
     }
 
     .products-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.85rem;
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
     }
 
-    .products-table th {
-    background-color: #f5f5f5;
-    padding: 8px;
-    text-align: left;
-    }
+        .products-table th {
+            background-color: #f5f5f5;
+            padding: 8px;
+            text-align: left;
+        }
 
-    .products-table td {
-    padding: 8px;
-    border-bottom: 1px solid var(--border-color);
-    }
+        .products-table td {
+            padding: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
 
     .form-actions {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-top: 15px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 15px;
     }
 
     .btn-save, .btn-cancel, .btn-payment {
-    padding: 10px;
-    border-radius: 4px;
-    font-size: 0.9rem;
-    border: none;
+        padding: 10px;
+        border-radius: 4px;
+        font-size: 0.9rem;
+        border: none;
     }
 
     .btn-save {
-    background-color: var(--primary-color);
-    color: white;
+        background-color: var(--primary-color);
+        color: white;
     }
 
     .btn-cancel {
-    background-color: #f0f0f0;
-    color: var(--text-color);
+        background-color: #f0f0f0;
+        color: var(--text-color);
     }
 
     .btn-payment {
-    background-color: var(--secondary-color);
-    color: white;
+        background-color: var(--secondary-color);
+        color: white;
     }
 
     /* Modal optimizado para Android */
     .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: rgba(0,0,0,0.5);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-    padding: 15px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0,0,0,0.5);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 1000;
+        padding: 15px;
     }
 
     .payment-modal {
-    background: white;
-    border-radius: 8px;
-    width: 100%;
-    max-width: 500px;
-    padding: 15px;
+        background: white;
+        border-radius: 8px;
+        width: 100%;
+        max-width: 500px;
+        padding: 15px;
     }
 
     .modal-header {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 15px;
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 15px;
     }
 
     .close-modal {
-    background: none;
-    border: none;
-    font-size: 1.2rem;
+        background: none;
+        border: none;
+        font-size: 1.2rem;
     }
 
     /* Media queries para tablets */
     @@media (min-width: 600px) {
-    .form-grid {
-    flex-direction: row;
-    flex-wrap: wrap;
+        .form-grid {
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+
+            .form-grid .input-group {
+                flex: 1 1 45%;
+            }
+
+        .product-form-grid {
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+
+            .product-form-grid .input-group {
+                flex: 1 1 45%;
+            }
+
+        .form-actions {
+            flex-direction: row;
+        }
     }
 
-    .form-grid .input-group {
-    flex: 1 1 45%;
+    /* Variables de color */
+    :root {
+        --primary-blue: #1976D2;
+        --primary-blue-dark: #1565C0;
+        --primary-blue-light: #E3F2FD;
+        --light-blue: #E1F5FE;
+        --white: #FFFFFF;
+        --text-dark: #333333;
+        --text-light: #777777;
+        --border-color: #E0E0E0;
+        --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        --transition: all 0.3s ease;
     }
 
-    .product-form-grid {
-    flex-direction: row;
-    flex-wrap: wrap;
+    /* Estructura principal */
+    .filters-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        backdrop-filter: blur(3px);
     }
 
-    .product-form-grid .input-group {
-    flex: 1 1 45%;
+    .filters-panel-container {
+        width: 90%;
+        max-width: 850px;
+        max-height: 90vh;
+        overflow-y: auto;
+        animation: fadeIn 0.3s ease-out;
     }
 
-    .form-actions {
-    flex-direction: row;
+    @@keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
     }
+
+    .filters-panel {
+        background-color: var(--white);
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Encabezado con degradado azul */
+    .filters-header {
+        background: linear-gradient(135deg, var(--primary-blue), var(--primary-blue-dark));
+        color: var(--white);
+        padding: 1.5rem;
+        text-align: center;
+        position: relative;
+    }
+
+    .header-content {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .filters-header h3 {
+        margin: 0;
+        font-size: 1.5rem;
+        font-weight: 500;
+        flex-grow: 1;
+        text-align: center;
+        letter-spacing: 0.5px;
+    }
+
+    .filters-header i {
+        font-size: 1.3rem;
+    }
+
+    .close-btn {
+        background: none;
+        border: none;
+        color: var(--white);
+        font-size: 1.3rem;
+        cursor: pointer;
+        padding: 5px;
+        transition: var(--transition);
+    }
+
+        .close-btn:hover {
+            transform: rotate(90deg);
+        }
+
+    /* Cuerpo del panel */
+    .filters-body {
+        padding: 0;
+    }
+
+    .filter-section {
+        padding: 1.5rem;
+        margin-bottom: 1px;
+    }
+
+    .blue-panel {
+        background-color: var(--primary-blue-light);
+        border-bottom: 1px solid rgba(25, 118, 210, 0.1);
+    }
+
+    .white-panel {
+        background-color: var(--white);
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .light-blue-panel {
+        background-color: var(--light-blue);
+    }
+
+    .section-title {
+        font-size: 1.1rem;
+        font-weight: 500;
+        color: var(--primary-blue-dark);
+        margin-bottom: 1.2rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+        .section-title i {
+            font-size: 1rem;
+        }
+
+    /* Grid de filtros */
+    .filters-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .filter-item {
+        margin-bottom: 0.5rem;
+    }
+
+    .filter-label {
+        display: block;
+        margin-bottom: 0.6rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: var(--text-dark);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+        .filter-label i {
+            font-size: 0.9rem;
+            color: var(--primary-blue);
+        }
+
+    /* Elementos de formulario */
+    .filter-select, .filter-input {
+        width: 100%;
+        padding: 0.7rem 1rem;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 0.9rem;
+        transition: var(--transition);
+        background-color: var(--white);
+        box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+        .filter-select:focus, .filter-input:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+            box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.1);
+        }
+
+    .input-with-symbol {
+        position: relative;
+    }
+
+    .input-symbol {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-light);
+        font-weight: 500;
+    }
+
+    .filter-input.with-symbol {
+        padding-left: 30px;
+    }
+
+    .input-with-icon {
+        position: relative;
+    }
+
+        .input-with-icon i {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--primary-blue);
+            pointer-events: none;
+        }
+
+    /* Toggle switch mejorado */
+    .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 50px;
+        height: 26px;
+        margin-left: auto;
+    }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+    .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: #ccc;
+        transition: .4s;
+        border-radius: 34px;
+    }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+    input:checked + .toggle-slider {
+        background-color: var(--primary-blue);
+    }
+
+        input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+    /* Pie de página */
+    .filters-footer {
+        display: flex;
+        justify-content: flex-end;
+        padding: 1.2rem 1.5rem;
+        background-color: var(--white);
+        border-top: 1px solid var(--border-color);
+        gap: 1rem;
+    }
+
+    .btn {
+        padding: 0.7rem 1.5rem;
+        border-radius: 8px;
+        font-size: 0.95rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: var(--transition);
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: none;
+        box-shadow: var(--shadow);
+    }
+
+    .btn-primary {
+        background-color: var(--primary-blue);
+        color: var(--white);
+    }
+
+        .btn-primary:hover {
+            background-color: var(--primary-blue-dark);
+            transform: translateY(-2px);
+        }
+
+    .btn-outline {
+        background-color: transparent;
+        color: var(--primary-blue);
+        border: 1px solid var(--primary-blue);
+    }
+
+        .btn-outline:hover {
+            background-color: var(--primary-blue-light);
+            transform: translateY(-2px);
+        }
+
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .filters-grid {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .filters-footer {
+            justify-content: center;
+        }
+    }
+
+    @@media (max-width: 480px) {
+        .filters-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .filters-footer {
+            flex-direction: column;
+        }
+
+        .btn {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+
+    .fa-spinner {
+        margin-right: 8px;
+    }
+
+    .btn[disabled] {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+
+    .btn-primary:active {
+        transform: translateY(1px);
+    }
+
+    .btn-filter {
+        /* Estilos base */
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0.6rem 1.2rem;
+        border-radius: 6px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+        /* Colores y bordes */
+        background-color: var(--primary-blue-light);
+        color: var(--primary-blue-dark);
+        border: 1px solid var(--primary-blue);
+        /* Efectos visuales */
+        box-shadow: 0 2px 5px rgba(25, 118, 210, 0.1);
+    }
+
+        .btn-filter:hover {
+            background-color: var(--primary-blue);
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(25, 118, 210, 0.2);
+        }
+
+        .btn-filter:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 3px rgba(25, 118, 210, 0.2);
+        }
+
+        .btn-filter i {
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn-filter:hover i {
+            color: white;
+            transform: scale(1.1);
+        }
+
+        /* Efecto de onda al hacer clic */
+        .btn-filter::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 5px;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.5);
+            opacity: 0;
+            border-radius: 100%;
+            transform: scale(1, 1) translate(-50%);
+            transform-origin: 50% 50%;
+        }
+
+        .btn-filter:focus:not(:active)::after {
+            animation: ripple 0.6s ease-out;
+        }
+
+    @@keyframes ripple {
+        0% {
+            transform: scale(0, 0);
+            opacity: 0.5;
+        }
+
+        100% {
+            transform: scale(20, 20);
+            opacity: 0;
+        }
     }
 </style>
 
@@ -368,7 +787,7 @@
                                             <td>@((detalle.cantidad * detalle.precioUnitario).ToString("F2"))</td>
                                             <td>
                                                 <button type="button" class="btn-remove-product"
-                                                @onclick="@(() => EliminarProducto(detalle.codigoProducto))">
+                                                        @onclick="@(() => EliminarProducto(detalle.codigoProducto))">
                                                     <i class="fas fa-trash-alt"></i>
                                                 </button>
                                             </td>
@@ -449,7 +868,7 @@
                             <div class="input-group">
                                 <label><i class="fas fa-hand-holding-usd"></i> Abono</label>
                                 <InputNumber @bind-Value="abono.montoAbono" class="input-style"
-                                @oninput="ActualizarEstadoFactura" min="0" max="@saldoActual" />
+                                             @oninput="ActualizarEstadoFactura" min="0" max="@saldoActual" />
                                 <ValidationMessage For="@(() => abono.montoAbono)" />
                             </div>
 
@@ -483,11 +902,165 @@
         <div class="invoice-card">
             <div class="card-header">
                 <h3><i class="fas fa-history"></i> Historial de Facturas</h3>
-                <div class="search-box">
-                    <i class="fas fa-search"></i>
-                    <input type="text" placeholder="Buscar facturas..." />
-                </div>
+
+                <!-- Botón para mostrar/ocultar filtros -->
+                <button class="btn-filter" @onclick="ToggleFiltros">
+                    <i class="fas fa-filter"></i> @(mostrarFiltros ? "Ocultar Filtros" : "Mostrar Filtros")
+                </button>
             </div>
+
+
+            @if (mostrarFiltros)
+            {
+                <div class="filters-overlay" @onclick="() => mostrarFiltros = false">
+                    <div class="filters-panel-container" @onclick:stopPropagation>
+                        <div class="filters-panel">
+                            <!-- Encabezado con degradado azul -->
+                            <div class="filters-header">
+                                <div class="header-content">
+                                    <i class="fas fa-filter"></i>
+                                    <h3>Filtrar Facturas</h3>
+                                    <button class="close-btn" @onclick="() => mostrarFiltros = false">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Cuerpo con paneles alternados -->
+                            <div class="filters-body">
+                                <!-- Panel azul para filtros principales -->
+                                <div class="filter-section blue-panel">
+                                    <div class="section-title">
+                                        <i class="fas fa-sliders-h"></i> Filtros Principales
+                                    </div>
+                                    <div class="filters-grid">
+                                        <!-- Cliente -->
+                                        <div class="filter-item">
+                                            <label class="filter-label">
+                                                <i class="fas fa-user"></i> Cliente
+                                            </label>
+                                            <select @bind="filtroCodigoCliente" class="filter-select">
+                                                <option value="0">Todos los clientes</option>
+                                                @foreach (var c in clientes)
+                                                {
+                                                    <option value="@c.codigoCliente">@c.nombre @c.apellido</option>
+                                                }
+                                            </select>
+                                        </div>
+
+                                        <!-- Fecha Desde -->
+                                        <div class="filter-item">
+                                            <label class="filter-label">
+                                                <i class="fas fa-calendar"></i> Fecha Desde
+                                            </label>
+                                            <div class="input-with-icon">
+                                                <input type="date" @bind="filtroFechaDesde" class="filter-input" />
+                                                <i class="fas fa-calendar-alt"></i>
+                                            </div>
+                                        </div>
+
+                                        <!-- Fecha Hasta -->
+                                        <div class="filter-item">
+                                            <label class="filter-label">
+                                                <i class="fas fa-calendar"></i> Fecha Hasta
+                                            </label>
+                                            <div class="input-with-icon">
+                                                <input type="date" @bind="filtroFechaHasta" class="filter-input" />
+                                                <i class="fas fa-calendar-alt"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Panel blanco para filtros financieros -->
+                                <div class="filter-section white-panel">
+                                    <div class="section-title">
+                                        <i class="fas fa-money-bill-wave"></i> Filtros Financieros
+                                    </div>
+                                    <div class="filters-grid">
+                                        <!-- Monto Mínimo -->
+                                        <div class="filter-item">
+                                            <label class="filter-label">
+                                                <i class="fas fa-dollar-sign"></i> Monto Mínimo
+                                            </label>
+                                            <div class="input-with-symbol">
+                                                <span class="input-symbol">$</span>
+                                                <input type="number" @bind="filtroMontoMinimo" min="0" step="0.01"
+                                                       class="filter-input with-symbol" placeholder="0.00" />
+                                            </div>
+                                        </div>
+
+                                        <!-- Monto Máximo -->
+                                        <div class="filter-item">
+                                            <label class="filter-label">
+                                                <i class="fas fa-dollar-sign"></i> Monto Máximo
+                                            </label>
+                                            <div class="input-with-symbol">
+                                                <span class="input-symbol">$</span>
+                                                <input type="number" @bind="filtroMontoMaximo" min="0" step="0.01"
+                                                       class="filter-input with-symbol" placeholder="0.00" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Panel azul claro para filtros adicionales -->
+                                <div class="filter-section light-blue-panel">
+                                    <div class="section-title">
+                                        <i class="fas fa-cog"></i> Filtros Adicionales
+                                    </div>
+                                    <div class="filters-grid">
+                                        <!-- Tipo -->
+                                        <div class="filter-item">
+                                            <label class="filter-label">
+                                                <i class="fas fa-tag"></i> Tipo
+                                            </label>
+                                            <select @bind="filtroTipo" class="filter-select">
+                                                <option value="">Todos los tipos</option>
+                                                <option value="Contado">Contado</option>
+                                                <option value="Crédito">Crédito</option>
+                                            </select>
+                                        </div>
+
+                                        <!-- Estado -->
+                                        <div class="filter-item">
+                                            <label class="filter-label">
+                                                <i class="fas fa-info-circle"></i> Estado
+                                            </label>
+                                            <select @bind="filtroEstado" class="filter-select">
+                                                <option value="">Todos los estados</option>
+                                                <option value="Pagado">Pagado</option>
+                                                <option value="Pendiente">Pendiente</option>
+                                            </select>
+                                        </div>
+
+                                        <!-- Solo Pendientes -->
+                                        <div class="filter-item">
+                                            <label class="filter-label">
+                                                <i class="fas fa-clock"></i> Solo Pendientes
+                                            </label>
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" @bind="filtroSoloPendientes" />
+                                                <span class="toggle-slider round"></span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Pie de página con botones -->
+                            <div class="filters-footer">
+                                <button class="btn btn-outline" @onclick="ResetearFiltros">
+                                    <i class="fas fa-undo"></i> Limpiar Filtros
+                                </button>
+                                <button class="btn btn-primary" @onclick="AplicarFiltros">
+                                    <i class="fas fa-check"></i> Aplicar Filtros
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
             <div class="metrics-panel">
                 <div class="metric-card total">
                     <div class="metric-icon">
@@ -597,9 +1170,22 @@
     }
 </div>
 
-}
+
 
 @code {
+
+
+    // Variables para los filtros
+    private bool mostrarFiltros = false;
+    private int filtroCodigoCliente = 0;
+    private DateTime? filtroFechaDesde;
+    private DateTime? filtroFechaHasta;
+    private decimal? filtroMontoMinimo;
+    private decimal? filtroMontoMaximo;
+    private string filtroTipo = "";
+    private string filtroEstado = "";
+    private bool filtroSoloPendientes = false;
+
     private int totalFacturas = 0;
     private int facturasPendientes = 0;
     private int facturasPagadas = 0;
@@ -607,13 +1193,13 @@
     private decimal totalFacturado = 0;
     private decimal totalPendiente = 0;
     private decimal porcentajePagado = 0;
-    private int facturaTrend = 0; // Porcentaje de cambio respecto al período anterior
+    private int facturaTrend = 0;
     private int totalPurchases = 0;
     private int pendingInvoices = 0;
     private int paidInvoices = 0;
     private decimal totalAmount = 0.00m;
     private List<Producto> productos = new();
-    private Producto productoSeleccionado = new(); 
+    private Producto productoSeleccionado = new();
     private DetalleFactura detalleFactura = new();
     private List<DetalleFactura> detallesFactura = new();
 
@@ -640,6 +1226,81 @@
     private string estadoFactura = "Pendiente";
     private decimal montoFacturaSeleccionada;
     private decimal saldoFacturaSeleccionada;
+
+
+    private void ToggleFiltros()
+    {
+        mostrarFiltros = !mostrarFiltros;
+    }
+
+
+    private async Task AplicarFiltros()
+    {
+        try
+        {
+            // Construir URL con parámetros de filtro
+            var url = $"api/Factura/GetFacturasFiltradas?";
+
+            if (filtroCodigoCliente > 0)
+                url += $"codigoCliente={filtroCodigoCliente}&";
+
+            if (filtroFechaDesde.HasValue)
+                url += $"fechaDesde={filtroFechaDesde.Value:yyyy-MM-dd}&";
+
+            if (filtroFechaHasta.HasValue)
+                url += $"fechaHasta={filtroFechaHasta.Value:yyyy-MM-dd}&";
+
+            if (filtroMontoMinimo.HasValue)
+                url += $"montoMinimo={filtroMontoMinimo}&";
+
+            if (filtroMontoMaximo.HasValue)
+                url += $"montoMaximo={filtroMontoMaximo}&";
+
+            if (!string.IsNullOrEmpty(filtroTipo))
+                url += $"tipo={filtroTipo}&";
+
+            if (!string.IsNullOrEmpty(filtroEstado))
+                url += $"estado={filtroEstado}&";
+
+            if (filtroSoloPendientes)
+                url += $"pendientes=true&";
+
+            // Eliminar el último & si existe
+            if (url.EndsWith("&"))
+                url = url[..^1];
+
+            facturas = await Http.GetFromJsonAsync<List<Factura>>(url);
+            await CalcularMetricas();
+
+            // Cerrar el panel de filtros
+            mostrarFiltros = false;
+
+            // Activar la pestaña de historial si no está activa
+            if (activeTab != "historial")
+            {
+                activeTab = "historial";
+                // Opcional: desplazar la vista hacia la sección de historial
+                await JS.InvokeVoidAsync("scrollToElement", "historial-section");
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Error al aplicar filtros: {ex.Message}");
+        }
+    }
+    private async Task ResetearFiltros()
+    {
+        filtroCodigoCliente = 0;
+        filtroFechaDesde = null;
+        filtroFechaHasta = null;
+        filtroMontoMinimo = null;
+        filtroMontoMaximo = null;
+        filtroTipo = "";
+        filtroEstado = "";
+        filtroSoloPendientes = false;
+
+        await CargarFacturas();
+    }
 
     private void CerrarModalExito()
     {
@@ -743,7 +1404,7 @@
             return;
 
         var detalleExistente = detallesFactura.FirstOrDefault(d => d.codigoProducto == productoSeleccionado.codigoProducto);
-        
+
         if (detalleExistente != null)
         {
             detalleExistente.cantidad += detalleFactura.cantidad;
@@ -752,19 +1413,19 @@
         else
         {
             detallesFactura.Add(new DetalleFactura
-            {
-                codigoProducto = productoSeleccionado.codigoProducto,
-                cantidad = detalleFactura.cantidad,
-                precioUnitario = productoSeleccionado.costo,
-                subtotal = detalleFactura.cantidad * productoSeleccionado.costo
-            });
+                {
+                    codigoProducto = productoSeleccionado.codigoProducto,
+                    cantidad = detalleFactura.cantidad,
+                    precioUnitario = productoSeleccionado.costo,
+                    subtotal = detalleFactura.cantidad * productoSeleccionado.costo
+                });
         }
 
         // Actualizar totales
         factura.totalFactura = detallesFactura.Sum(d => d.subtotal);
         factura.saldo = factura.totalFactura;
-        
-       
+
+
     }
 
     private void EliminarProducto(int codigoProducto)
@@ -851,13 +1512,13 @@
                 try
                 {
                     // Usando Newtonsoft.Json para parsear el error
-                    var errorObj = JObject.Parse(errorContent);
-                    if (errorObj["errors"] != null)
+                    var errorObj = JsonDocument.Parse(errorContent);
+                    if (errorObj.RootElement.TryGetProperty("errors", out var errors))
                     {
                         var errorMessages = new List<string>();
-                        foreach (var error in errorObj["errors"])
+                        foreach (var error in errors.EnumerateArray())
                         {
-                            errorMessages.Add(error.First.ToString());
+                            errorMessages.Add(error.GetString());
                         }
                         await JS.InvokeVoidAsync("alert", $"Errores de validación:\n{string.Join("\n", errorMessages)}");
                     }
@@ -1046,19 +1707,19 @@
         }
     }
 
-   
+
 
     private void EditarFactura(Factura f)
     {
         factura = new Factura
-        {
-            codigoFactura = f.codigoFactura,
-            codigoCliente = f.codigoCliente,
-            fecha = f.fecha,
-            totalFactura = f.totalFactura,
-            saldo = f.saldo,
-            tipo = f.tipo
-        };
+            {
+                codigoFactura = f.codigoFactura,
+                codigoCliente = f.codigoCliente,
+                fecha = f.fecha,
+                totalFactura = f.totalFactura,
+                saldo = f.saldo,
+                tipo = f.tipo
+            };
         editando = true;
     }
 
@@ -1902,8 +2563,8 @@
         .metric-value {
             font-size: 1.4rem;
         }
+
 </style>
 
 <!-- Agregar Font Awesome para los íconos -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
-

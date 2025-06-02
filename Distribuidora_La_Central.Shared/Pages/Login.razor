@@ -1,7 +1,10 @@
 ﻿@page "/"
 @inject HttpClient Http
+@inject AppState AppState
 @inject NavigationManager Navigation
 @using Distribuidora_La_Central.Shared.Helpers
+@using Distribuidora_La_Central.Shared.Models
+
 
 
 <div class="login-container">
@@ -61,24 +64,45 @@
     private string codigoAcceso = string.Empty;
     private string mensaje = string.Empty;
 
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Redirigir si ya está autenticado
+        if (AppState.IsLoggedIn)
+        {
+            Navigation.NavigateTo("/home");
+        }
+    }
+
+
     private async Task Acceder()
     {
-        var datos = new { nombre = nombre, codigoAcceso = codigoAcceso };
-        var url = ApiHelper.GetApiUrl("Auth/Login");
-
         try
         {
-            var response = await Http.PostAsJsonAsync(url, datos);
+            var response = await Http.PostAsJsonAsync("api/Auth/Login", new
+            {
+                nombre = nombre,
+                codigoAcceso = codigoAcceso
+            });
 
             if (response.IsSuccessStatusCode)
             {
-                mensaje = string.Empty;
-                Navigation.NavigateTo("/home");
+                var usuario = await response.Content.ReadFromJsonAsync<Usuario>();
+
+                // Verificación null-safe
+                if (usuario != null)
+                {
+                    AppState.Login(usuario.nombre, usuario.rol);
+                    Navigation.NavigateTo("/home");
+                }
+                else
+                {
+                    mensaje = "Error al procesar la respuesta del servidor";
+                }
             }
             else
             {
-                var error = await response.Content.ReadAsStringAsync();
-                mensaje = $"Error: {error}";
+                mensaje = await response.Content.ReadAsStringAsync();
             }
         }
         catch (Exception ex)
@@ -86,6 +110,8 @@
             mensaje = $"Error de conexión: {ex.Message}";
         }
     }
+
+
 }
 
 
