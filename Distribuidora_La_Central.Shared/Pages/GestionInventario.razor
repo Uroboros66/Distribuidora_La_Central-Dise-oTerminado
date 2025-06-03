@@ -51,6 +51,7 @@
                             <th>Costo</th>
                             <th>Items</th>
                             <th>Bodega</th>
+                            <th>Medida</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -78,6 +79,7 @@
                                             @(bodega?.nombre ?? "N/A")
                                         }
                                     </td>
+                                    <td>@p.unidadMedida</td>
                                     <td class="actions-cell">
                                         <button class="action-btn edit-btn" @onclick="() => EditarProducto(p)" title="Editar">
                                             <i class="fas fa-edit"></i>
@@ -134,13 +136,23 @@
                     <!-- Row 2 -->
                     <div class="form-group">
                         <label><i class="fas fa-ruler"></i> Unidad de Medida</label>
-                        <input type="text" @bind="productoActual.unidadMedida" class="form-input" />
+                        <div class="select-with-btn">
+                            <select @bind="productoActual.unidadMedida" class="form-select">
+                                <option value="0">Seleccione una unidad</option>
+                                @foreach (var unidad in unidades.OrderBy(u => u.Nombre))
+                                {
+                                    <option value="@unidad.IdUnidad">@unidad.Nombre</option>
+                                }
+                            </select>
+                            <button class="add-category-btn" @onclick="ShowAddUnidadForm" title="Agregar unidad">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
                     </div>
+                       
 
-                    <div class="form-group">
-                        <label><i class="fas fa-percentage"></i> Margen de Ganancia (%)</label>
-                        <input type="number" step="0.01" @bind="productoActual.margenGanancia" class="form-input" />
-                    </div>
+
+                
 
                     <!-- Row 3 -->
                     <div class="form-group">
@@ -211,6 +223,35 @@
         </div>
     }
 
+    <!-- Modal para agregar nueva unidad (similar al de categorías) -->
+    @if (showUnidadForm)
+    {
+        <div class="modal-overlay" @onclick="HideUnidadForm"></div>
+        <div class="modal-container small-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-ruler"></i> Agregar Nueva Unidad</h3>
+                <button class="close-btn" @onclick="HideUnidadForm">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Nombre:</label>
+                    <input type="text" @bind="nuevaUnidad.Nombre" class="form-input" />
+                </div>
+
+                <div class="form-actions">
+                    <button class="btn cancel-btn" @onclick="HideUnidadForm">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button class="btn save-btn" @onclick="GuardarUnidad">
+                        <i class="fas fa-save"></i> Guardar
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
     <!-- Category Form Modal -->
     @if (showCategoriaForm)
     {
@@ -256,6 +297,14 @@
 </div>
 
 @code {
+
+
+    private UnidadMedida unidadActual = new();
+    private bool showUnidadForm = false;
+    private bool modoEditarUnidad = false;
+    private UnidadMedida nuevaUnidad = new();
+    
+
     public class Bodega
     {
         public int idBodega { get; set; }
@@ -302,6 +351,8 @@
     private List<Producto> productos = new();
     private List<Producto> productosFiltrados = new();
     private List<Proveedor> proveedores = new();
+
+    private List<UnidadMedida> unidades = new();
     private List<CategoriaProducto> categoriaProductos = new();
     private Producto productoActual = new();
     private CategoriaProducto nuevaCategoria = new();
@@ -312,12 +363,19 @@
     private bool modoEditar = false;
     private int categoriaFiltro = 0;
 
+    public class UnidadMedida
+    {
+        public int IdUnidad { get; set; }
+        public string Nombre { get; set; }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         await CargarProductos();
         await CargarCategorias();
         proveedores = await Http.GetFromJsonAsync<List<Proveedor>>("api/Proveedor/obtener-todos") ?? new();
         await CargarBodegas();
+        await CargarUnidades();
     }
 
     private async Task CargarProductos()
@@ -330,6 +388,97 @@
         catch (Exception ex)
         {
             mensaje = $"❌ Error al cargar productos: {ex.Message}";
+        }
+    }
+
+    private async Task CargarUnidades()
+    {
+        try
+        {
+            unidades = await Http.GetFromJsonAsync<List<UnidadMedida>>("api/UnidadMedida") ?? new();
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"❌ Error al cargar unidades de medida: {ex.Message}";
+        } 
+    }
+
+
+    private void ShowAddUnidadForm()
+    {
+        unidadActual = new UnidadMedida();
+        showUnidadForm = true;
+        modoEditarUnidad = false;
+    }
+
+
+    private void HideUnidadForm()
+    {
+        showUnidadForm = false;
+    }
+
+    private void EditarUnidad(UnidadMedida unidad)
+    {
+        unidadActual = new UnidadMedida
+            {
+                IdUnidad = unidad.IdUnidad,
+                Nombre = unidad.Nombre
+            };
+        showUnidadForm = true;
+        modoEditarUnidad = true;
+    }
+
+    private async Task GuardarUnidad()
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(nuevaUnidad.Nombre))
+            {
+                mensaje = "❌ El nombre de la unidad es requerido";
+                return;
+            }
+
+            var response = await Http.PostAsJsonAsync("api/UnidadMedida", nuevaUnidad);
+            if (response.IsSuccessStatusCode)
+            {
+                mensaje = "✅ Unidad agregada con éxito";
+                await CargarUnidades(); // Asegúrate de tener este método
+                HideUnidadForm();
+                // Selecciona automáticamente la nueva unidad añadida
+                var unidadAgregada = await response.Content.ReadFromJsonAsync<UnidadMedida>();
+                productoActual.unidadMedida = unidadAgregada.IdUnidad.ToString();
+            }
+            else
+            {
+                mensaje = "❌ Error al agregar la unidad";
+            }
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"❌ Error: {ex.Message}";
+        }
+    }
+
+
+
+    private async Task EliminarUnidad(int id)
+    {
+        try
+        {
+            var response = await Http.DeleteAsync($"api/UnidadMedida/{id}");
+            if (response.IsSuccessStatusCode)
+            {
+                mensaje = "✅ Unidad eliminada con éxito";
+                await CargarUnidades();
+            }
+            else
+            {
+                mensaje = $"❌ Error al eliminar: {await response.Content.ReadAsStringAsync()}";
+            }
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"❌ Error: {ex.Message}";
         }
     }
 
