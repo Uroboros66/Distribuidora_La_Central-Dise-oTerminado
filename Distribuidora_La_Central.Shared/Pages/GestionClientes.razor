@@ -1,7 +1,6 @@
 ﻿@page "/gestionclientes"
 @inject HttpClient Http
-
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+@using System.Text.Json
 
 <div class="gestor-clientes">
     <h3 class="titulo-principal">Gestión de Clientes</h3>
@@ -50,9 +49,17 @@
                         <input type="text" @bind="nuevoCliente.direccion" placeholder="Dirección completa" />
                     </div>
 
+
+
                     <div class="grupo-formulario">
-                        <label>Creado por (ID usuario):</label>
-                        <input type="number" @bind="nuevoCliente.creado_por" placeholder="ID del usuario" />
+                        <label>Creado por:</label>
+                        <select @bind="nuevoCliente.creado_por">
+                            <option value="">Seleccione un usuario</option>
+                            @foreach (var usuario in listaUsuarios)
+                            {
+                                <option value="@usuario.idUsuario">@usuario.nombre (@usuario.rol)</option>
+                            }
+                        </select>
                     </div>
                 </div>
 
@@ -76,7 +83,7 @@
                 <h4>Lista de Clientes</h4>
                 <div class="busqueda">
                     <input type="text" placeholder="Buscar clientes..." @bind="filtroBusqueda"
-                           @oninput="(e) => { filtroBusqueda = e.Value.ToString(); FiltrarClientes(); }" />
+                           @oninput="(e) => { filtroBusqueda = e.Value.ToString();  FiltrarClientes(); }" />
                     <i class="icono-buscar"></i>
                 </div>
             </div>
@@ -99,12 +106,12 @@
                             @foreach (var cliente in clientesFiltrados)
                             {
                                 <tr>
-                                    <td data-label="Código">@cliente.codigoCliente</td>
-                                    <td data-label="Nombre">@cliente.nombre</td>
-                                    <td data-label="Apellido">@cliente.apellido</td>
-                                    <td data-label="Cédula">@cliente.cedula</td>
-                                    <td data-label="Tipo"><span class="badge-tipo @cliente.tipoCliente.ToLower()">@cliente.tipoCliente</span></td>
-                                    <td class="acciones" data-label="Acciones">
+                                    <td>@cliente.codigoCliente</td>
+                                    <td>@cliente.nombre</td>
+                                    <td>@cliente.apellido</td>
+                                    <td>@cliente.cedula</td>
+                                    <td><span class="badge-tipo @cliente.tipoCliente.ToLower()">@cliente.tipoCliente</span></td>
+                                    <td class="acciones">
                                         <button class="btn-editar" @onclick="() => EditarCliente(cliente)" title="Editar">
                                             <i class="icono-editar"></i>
                                         </button>
@@ -134,8 +141,16 @@
 
 
 
-
 @code {
+
+    public class Usuario
+    {
+        public int idUsuario { get; set; }
+        public string nombre { get; set; } = string.Empty;
+        public string rol { get; set; } = string.Empty;
+        public string codigoAcceso { get; set; } = string.Empty;
+    }
+    private List<Usuario> listaUsuarios = new List<Usuario>();
     List<Cliente> clientes = new();
     List<Cliente> clientesFiltrados = new();
     Cliente nuevoCliente = new();
@@ -145,7 +160,29 @@
     protected override async Task OnInitializedAsync()
     {
         await CargarClientes();
+        await CargarUsuarios();
     }
+
+
+    private async Task CargarUsuarios()
+    {
+        try
+        {
+            var response = await Http.GetAsync("api/Usuario/obtener-todos");
+
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync();
+                listaUsuarios = JsonSerializer.Deserialize<List<Usuario>>(content);
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al cargar usuarios: {ex.Message}");
+        }
+    }
+
 
     protected override void OnParametersSet()
     {
@@ -277,104 +314,101 @@
 }
 
 <style>
-    /* Estilos base optimizados para móvil */
+    /* Estilos base */
     .gestor-clientes {
-        font-family: 'Segoe UI', Roboto, Arial, sans-serif;
-        padding: 10px;
+        font-family: 'Segoe UI', Arial, sans-serif;
+        padding: 20px;
         background-color: #f5f7fa;
         min-height: 100vh;
-        box-sizing: border-box;
-        -webkit-text-size-adjust: 100%;
     }
 
     .titulo-principal {
         color: #1A2E5A;
-        margin-bottom: 15px;
+        margin-bottom: 25px;
         font-weight: 600;
         border-bottom: 2px solid #E30613;
-        padding-bottom: 6px;
+        padding-bottom: 8px;
         display: inline-block;
-        font-size: 1.3rem;
     }
 
     .contenedor-principal {
         display: flex;
-        flex-direction: column;
-        gap: 15px;
+        gap: 25px;
+        flex-wrap: wrap;
     }
 
     .panel-lista, .panel-formulario {
-        width: 100%;
+        flex: 1;
+        min-width: 350px;
         background: white;
-        border-radius: 6px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
         overflow: hidden;
     }
 
     .encabezado-panel {
         background-color: #1A2E5A;
         color: white;
-        padding: 12px 15px;
+        padding: 15px 20px;
         display: flex;
-        flex-direction: column;
-        gap: 10px;
+        justify-content: space-between;
+        align-items: center;
     }
 
         .encabezado-panel h4 {
             margin: 0;
             font-weight: 500;
-            font-size: 1.1rem;
+            font-size: 16px;
         }
 
     .busqueda {
         position: relative;
-        width: 100%;
+        width: 200px;
     }
 
         .busqueda input {
             width: 100%;
-            padding: 10px 30px 10px 12px;
+            padding: 8px 30px 8px 10px;
             border-radius: 4px;
             border: none;
             font-size: 14px;
-            box-sizing: border-box;
-            min-height: 44px;
-            -webkit-appearance: none;
         }
 
     .icono-buscar {
         position: absolute;
-        right: 10px;
+        right: 8px;
         top: 50%;
         transform: translateY(-50%);
         width: 16px;
         height: 16px;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%231A2E5A'%3E%3Cpath d='M15.5 14h-.79l-.28-.27a6.5 6.5 0 0 0 1.48-5.34c-.47-2.78-2.79-5-5.59-5.34a6.505 6.505 0 0 0-7.27 7.27c.34 2.8 2.56 5.12 5.34 5.59a6.5 6.5 0 0 0 5.34-1.48l.27.28v.79l4.25 4.25c.41.41 1.08.41 1.49 0 .41-.41.41-1.08 0-1.49L15.5 14zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3C/svg%3E");
+        background-size: contain;
+        background-repeat: no-repeat;
     }
 
     .contenedor-tabla {
-        padding: 10px;
-        max-height: 500px;
+        padding: 15px;
+        max-height: 600px;
         overflow-y: auto;
-        -webkit-overflow-scrolling: touch;
     }
 
     .formulario {
-        padding: 15px;
+        padding: 20px;
     }
 
     .form-grid {
         display: grid;
-        grid-template-columns: 1fr;
-        gap: 10px;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 15px;
     }
 
     .grupo-formulario {
-        margin-bottom: 12px;
+        margin-bottom: 15px;
     }
 
     label {
         display: block;
-        margin-bottom: 5px;
+        margin-bottom: 6px;
         font-weight: 500;
         color: #1A2E5A;
         font-size: 14px;
@@ -386,18 +420,22 @@
         border: 1px solid #ced4da;
         border-radius: 4px;
         font-size: 14px;
-        box-sizing: border-box;
-        min-height: 44px;
-        -webkit-appearance: none;
+        transition: border-color 0.2s;
     }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #1A2E5A;
+            box-shadow: 0 0 0 2px rgba(26, 46, 90, 0.2);
+        }
 
     .acciones-formulario {
         display: flex;
-        gap: 8px;
-        margin-top: 15px;
+        gap: 10px;
+        margin-top: 20px;
     }
 
-    /* Tabla optimizada para móvil */
+    /* Tabla */
     table {
         width: 100%;
         border-collapse: collapse;
@@ -407,7 +445,7 @@
     th {
         background-color: #f8f9fa;
         color: #1A2E5A;
-        padding: 12px 8px;
+        padding: 12px 15px;
         text-align: left;
         font-weight: 600;
         border-bottom: 2px solid #e9ecef;
@@ -416,10 +454,13 @@
     }
 
     td {
-        padding: 12px 8px;
+        padding: 12px 15px;
         border-bottom: 1px solid #e9ecef;
         color: #495057;
-        word-break: break-word;
+    }
+
+    tr:hover {
+        background-color: #f8f9fa;
     }
 
     .badge-tipo {
@@ -448,7 +489,6 @@
     .acciones {
         display: flex;
         gap: 5px;
-        flex-wrap: nowrap;
     }
 
         .acciones button {
@@ -460,8 +500,6 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            min-width: 36px;
-            min-height: 36px;
         }
 
     .btn-editar {
@@ -496,40 +534,49 @@
         background-repeat: no-repeat;
     }
 
+    .icono-editar {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%231A2E5A'%3E%3Cpath d='M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z'/%3E%3C/svg%3E");
+    }
+
+    .icono-eliminar {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23E30613'%3E%3Cpath d='M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z'/%3E%3C/svg%3E");
+    }
+
+    .icono-detalle {
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234a7856'%3E%3Cpath d='M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z'/%3E%3C/svg%3E");
+    }
+
     .sin-resultados {
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 30px 0;
+        padding: 40px 0;
         color: #6c757d;
     }
 
     .icono-cliente {
-        width: 40px;
-        height: 40px;
-        margin-bottom: 10px;
+        width: 50px;
+        height: 50px;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236c757d'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E");
+        background-size: contain;
+        background-repeat: no-repeat;
+        margin-bottom: 15px;
     }
 
-    /* Botones optimizados */
-    .btn-guardar, .btn-cancelar {
-        padding: 10px 15px;
-        font-size: 14px;
+    /* Botones */
+    .btn-guardar {
+        background-color: #1A2E5A;
+        color: white;
         border: none;
+        padding: 10px 20px;
         border-radius: 4px;
         font-weight: 500;
         cursor: pointer;
         transition: background-color 0.2s;
         display: flex;
         align-items: center;
-        justify-content: center;
         gap: 6px;
-        min-height: 44px;
-    }
-
-    .btn-guardar {
-        background-color: #1A2E5A;
-        color: white;
     }
 
         .btn-guardar:hover {
@@ -539,6 +586,15 @@
     .btn-cancelar {
         background-color: #6c757d;
         color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
     }
 
         .btn-cancelar:hover {
@@ -553,105 +609,30 @@
         background-repeat: no-repeat;
     }
 
-    /* Media queries para pantallas más grandes */
-    @@media (min-width: 600px) {
-        .form-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-    }
-
-    @@media (min-width: 768px) {
-        .contenedor-principal {
-            flex-direction: row;
-        }
-
-        .panel-formulario {
-            flex: 0 0 400px;
-        }
-
-        .panel-lista {
-            flex: 1;
-        }
-    }
-
-    @@media (min-width: 992px) {
-        .form-grid {
-            grid-template-columns: repeat(3, 1fr);
-        }
-    }
-
-    /* Estilos para tabla en móviles */
-    @@media (max-width: 600px) {
-        table, thead, tbody, th, td, tr {
-            display: block;
-        }
-
-            thead tr {
-                position: absolute;
-                top: -9999px;
-                left: -9999px;
-            }
-
-        tr {
-            margin-bottom: 15px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-
-        td {
-            border: none;
-            border-bottom: 1px solid #eee;
-            position: relative;
-            padding-left: 50%;
-        }
-
-            td:before {
-                position: absolute;
-                left: 8px;
-                width: 45%;
-                padding-right: 10px;
-                white-space: nowrap;
-                content: attr(data-label);
-                font-weight: bold;
-                color: #1A2E5A;
-            }
-
-        .acciones {
-            justify-content: flex-end;
-            padding-left: 0;
-        }
-
-            .acciones:before {
-                content: none;
-            }
-    }
-
-    /* Iconos SVG embebidos */
-    .icono-buscar {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%231A2E5A'%3E%3Cpath d='M15.5 14h-.79l-.28-.27a6.5 6.5 0 0 0 1.48-5.34c-.47-2.78-2.79-5-5.59-5.34a6.505 6.505 0 0 0-7.27 7.27c.34 2.8 2.56 5.12 5.34 5.59a6.5 6.5 0 0 0 5.34-1.48l.27.28v.79l4.25 4.25c.41.41 1.08.41 1.49 0 .41-.41.41-1.08 0-1.49L15.5 14zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3C/svg%3E");
-    }
-
-    .icono-editar {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%231A2E5A'%3E%3Cpath d='M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z'/%3E%3C/svg%3E");
-    }
-
-    .icono-eliminar {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23E30613'%3E%3Cpath d='M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z'/%3E%3C/svg%3E");
-    }
-
-    .icono-detalle {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234a7856'%3E%3Cpath d='M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z'/%3E%3C/svg%3E");
-    }
-
-    .icono-cliente {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236c757d'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E");
-    }
-
     .icono-guardar {
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z'/%3E%3C/svg%3E");
     }
 
     .icono-cancelar {
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'/%3E%3C/svg%3E");
+    }
+
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .contenedor-principal {
+            flex-direction: column;
+        }
+
+        .panel-lista, .panel-formulario {
+            min-width: 100%;
+        }
+
+        .form-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .acciones {
+            justify-content: center;
+        }
     }
 </style>
