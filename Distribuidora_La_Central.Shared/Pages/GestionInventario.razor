@@ -23,18 +23,15 @@
     <main class="app-content">
         <!-- Products Section -->
         <section class="products-section">
-            <div class="section-header">
+            <div class="products-header">
                 <h3>Lista de Productos</h3>
-                <div class="controls-container">
-                    <div class="search-container">
-                        <input type="text" placeholder="Buscar producto..." @bind="busqueda" class="search-input" />
-                        <button class="search-btn" @onclick="BuscarProductos">
-                            <i class="fas fa-search"></i>
-                        </button>
+                <div class="products-controls">
+                    <div class="search-box">
+                        <input type="text" placeholder="Buscar producto..." @bind="busqueda"
+                               @onkeypress="@((e) => { if (e.Key == "Enter") BuscarProductos(); })" />
+                        <button class="search-button" @onclick="BuscarProductos">🔍</button>
                     </div>
-                    <button class="add-btn" @onclick="ShowAddForm">
-                        <i class="fas fa-plus"></i> Agregar Producto
-                    </button>
+                    <button class="add-button" @onclick="ShowAddForm">+ Agregar Producto</button>
                 </div>
             </div>
 
@@ -149,10 +146,10 @@
                             </button>
                         </div>
                     </div>
-                       
 
 
-                
+
+
 
                     <!-- Row 3 -->
                     <div class="form-group">
@@ -187,17 +184,23 @@
                         <input type="number" @bind="productoActual.items" class="form-input" />
                     </div>
 
-                    <!-- Row 5 -->
+                    <!-- Agrega esta sección donde necesites el selector de bodegas -->
                     <div class="form-group">
                         <label><i class="fas fa-warehouse"></i> Bodega</label>
-                        <select @bind="productoActual.idBodega" class="form-select">
-                            <option value="0">Seleccione una bodega</option>
-                            @foreach (var bodega in bodegas.OrderBy(b => b.nombre))
-                            {
-                                <option value="@bodega.idBodega">@bodega.nombre</option>
-                            }
-                        </select>
+                        <div class="select-with-btn">
+                            <select @bind="productoActual.idBodega" class="form-select">
+                                <option value="0">Seleccione una bodega</option>
+                                @foreach (var bodega in bodegas.OrderBy(b => b.nombre))
+                                {
+                                    <option value="@bodega.idBodega">@bodega.nombre</option>
+                                }
+                            </select>
+                            <button class="add-category-btn" @onclick="ShowAddBodegaForm" title="Agregar bodega">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
                     </div>
+
 
                     <div class="form-group">
                         <label><i class="fas fa-truck"></i> Proveedor</label>
@@ -217,6 +220,53 @@
                     </button>
                     <button class="btn save-btn" @onclick="GuardarProducto">
                         <i class="fas fa-save"></i> @(productoActual.codigoProducto == 0 ? "AGREGAR" : "GUARDAR")
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Modal para agregar nueva bodega -->
+    @if (showBodegaForm)
+    {
+        <div class="modal-overlay" @onclick="HideBodegaForm"></div>
+        <div class="modal-container small-modal">
+            <div class="modal-header">
+                <h3><i class="fas fa-warehouse"></i> Agregar Nueva Bodega</h3>
+                <button class="close-btn" @onclick="HideBodegaForm">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Nombre:</label>
+                    <input type="text" @bind="nuevaBodega.nombre" class="form-input" />
+                </div>
+
+                <div class="form-group">
+                    <label>Ubicación:</label>
+                    <input type="text" @bind="nuevaBodega.ubicacion" class="form-input" />
+                </div>
+
+                <!-- Nuevos campos agregados -->
+                <div class="form-group">
+                    <label>Responsable (ID):</label>
+                    <input type="number" @bind="nuevaBodega.responsable" class="form-input" />
+                </div>
+
+                <div class="form-group">
+                    <label>Fecha:</label>
+                    <input type="datetime-local" @bind="nuevaBodega.fecha" class="form-input"
+                           format-value="yyyy-MM-ddTHH:mm" />
+                </div>
+
+                <div class="form-actions">
+                    <button class="btn cancel-btn" @onclick="HideBodegaForm">
+                        <i class="fas fa-times"></i> Cancelar
+                    </button>
+                    <button class="btn save-btn" @onclick="GuardarBodega">
+                        <i class="fas fa-save"></i> Guardar
                     </button>
                 </div>
             </div>
@@ -298,18 +348,22 @@
 
 @code {
 
+    private Bodega nuevaBodega = new();
+    private bool showBodegaForm = false;
+
 
     private UnidadMedida unidadActual = new();
     private bool showUnidadForm = false;
     private bool modoEditarUnidad = false;
     private UnidadMedida nuevaUnidad = new();
-    
 
     public class Bodega
     {
         public int idBodega { get; set; }
         public string nombre { get; set; }
         public string ubicacion { get; set; }
+        public int responsable { get; set; } = 0; // Valor por defecto
+        public DateTime fecha { get; set; } = DateTime.Now; // Fecha actual por defecto
     }
 
     public class Producto
@@ -378,6 +432,69 @@
         await CargarUnidades();
     }
 
+    private void ShowAddBodegaForm()
+    {
+        nuevaBodega = new Bodega();
+        showBodegaForm = true;
+    }
+
+    private void HideBodegaForm()
+    {
+        showBodegaForm = false;
+    }
+
+    private async Task GuardarBodega()
+    {
+        try
+        {
+            // Validación básica
+            if (string.IsNullOrWhiteSpace(nuevaBodega.nombre))
+            {
+                mensaje = "❌ El nombre de la bodega es requerido";
+                return;
+            }
+
+            // Asegurar que la fecha esté en el rango válido para SQL Server
+            if (nuevaBodega.fecha < new DateTime(1753, 1, 1))
+            {
+                nuevaBodega.fecha = DateTime.Now;
+            }
+
+            var response = await Http.PostAsJsonAsync("api/Bodega/registrar", nuevaBodega);
+
+            if (response.IsSuccessStatusCode)
+            {
+                mensaje = "✅ Bodega registrada correctamente";
+                await CargarBodegas();
+                HideBodegaForm();
+            }
+            else
+            {
+                mensaje = $"❌ Error: {await response.Content.ReadAsStringAsync()}";
+            }
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"❌ Error inesperado: {ex.Message}";
+        }
+    }
+
+    private async Task CargarBodegas()
+    {
+        try
+        {
+            bodegas = await Http.GetFromJsonAsync<List<Bodega>>("api/Bodega/obtener-todos") ?? new List<Bodega>();
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"❌ Error al cargar bodegas: {ex.Message}";
+        }
+    }
+
+
+    // Asegúrate de tener este método y llamarlo en OnInitializedAsync
+
+
     private async Task CargarProductos()
     {
         try
@@ -400,7 +517,7 @@
         catch (Exception ex)
         {
             mensaje = $"❌ Error al cargar unidades de medida: {ex.Message}";
-        } 
+        }
     }
 
 
@@ -482,17 +599,7 @@
         }
     }
 
-    private async Task CargarBodegas()
-    {
-        try
-        {
-            bodegas = await Http.GetFromJsonAsync<List<Bodega>>("api/Bodega/obtener-todos") ?? new();
-        }
-        catch (Exception ex)
-        {
-            mensaje = $"❌ Error al cargar bodegas: {ex.Message}";
-        }
-    }
+
 
     private async Task CargarCategorias()
     {
@@ -775,6 +882,100 @@
         display: flex;
         align-items: center;
         gap: 1rem;
+    }
+
+    .products-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding: 0.5rem;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    .search-box {
+        display: flex;
+        align-items: center;
+        flex-grow: 1;
+        margin-right: 1rem;
+        background-color: white;
+        border-radius: 6px;
+        border: 1px solid #dee2e6;
+        transition: all 0.3s ease;
+    }
+
+        .search-box:focus-within {
+            border-color: #1976d2;
+            box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+        }
+
+        .search-box input {
+            flex-grow: 1;
+            padding: 0.75rem 1rem;
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 0.9rem;
+            color: #495057;
+            border-radius: 6px 0 0 6px;
+        }
+
+    .search-button {
+        padding: 0.75rem 1rem;
+        background-color: #1976d2;
+        color: white;
+        border: none;
+        border-radius: 0 6px 6px 0;
+        cursor: pointer;
+        transition: background-color 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .search-button:hover {
+            background-color: #1565c0;
+        }
+
+    .add-button {
+        padding: 0.75rem 1.5rem;
+        background-color: #1976d2;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-weight: 500;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        white-space: nowrap;
+    }
+
+        .add-button:hover {
+            background-color: #1565c0;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(25, 118, 210, 0.2);
+        }
+
+    @@media (max-width: 768px) {
+        .products-controls {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .search-box {
+            width: 100%;
+            margin-right: 0;
+        }
+
+        .add-button {
+            width: 100%;
+            justify-content: center;
+        }
     }
 
     .search-container {
