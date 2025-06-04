@@ -49,8 +49,6 @@
                         <input type="text" @bind="nuevoCliente.direccion" placeholder="Dirección completa" />
                     </div>
 
-
-
                     <div class="grupo-formulario">
                         <label>Creado por:</label>
                         <select @bind="nuevoCliente.creado_por">
@@ -99,19 +97,19 @@
                                 <th>Apellido</th>
                                 <th>Cédula</th>
                                 <th>Tipo</th>
-                                <th>Acciones</th>
+                                <th class="acciones-columna">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var cliente in clientesFiltrados)
                             {
                                 <tr>
-                                    <td>@cliente.codigoCliente</td>
-                                    <td>@cliente.nombre</td>
-                                    <td>@cliente.apellido</td>
-                                    <td>@cliente.cedula</td>
-                                    <td><span class="badge-tipo @cliente.tipoCliente.ToLower()">@cliente.tipoCliente</span></td>
-                                    <td class="acciones">
+                                    <td data-label="Código">@cliente.codigoCliente</td>
+                                    <td data-label="Nombre">@cliente.nombre</td>
+                                    <td data-label="Apellido">@cliente.apellido</td>
+                                    <td data-label="Cédula">@cliente.cedula</td>
+                                    <td data-label="Tipo"><span class="badge-tipo @cliente.tipoCliente.ToLower()">@cliente.tipoCliente</span></td>
+                                    <td class="acciones" data-label="Acciones">
                                         <button class="btn-editar" @onclick="() => EditarCliente(cliente)" title="Editar">
                                             <i class="icono-editar"></i>
                                         </button>
@@ -317,29 +315,30 @@
     /* Estilos base */
     .gestor-clientes {
         font-family: 'Segoe UI', Arial, sans-serif;
-        padding: 20px;
+        padding: 15px;
         background-color: #f5f7fa;
         min-height: 100vh;
     }
 
     .titulo-principal {
         color: #1A2E5A;
-        margin-bottom: 25px;
+        margin-bottom: 20px;
         font-weight: 600;
         border-bottom: 2px solid #E30613;
         padding-bottom: 8px;
         display: inline-block;
+        font-size: 1.5rem;
     }
 
     .contenedor-principal {
         display: flex;
-        gap: 25px;
+        gap: 20px;
         flex-wrap: wrap;
     }
 
     .panel-lista, .panel-formulario {
         flex: 1;
-        min-width: 350px;
+        min-width: 0;
         background: white;
         border-radius: 8px;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
@@ -349,21 +348,24 @@
     .encabezado-panel {
         background-color: #1A2E5A;
         color: white;
-        padding: 15px 20px;
+        padding: 12px 15px;
         display: flex;
         justify-content: space-between;
         align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
     }
 
         .encabezado-panel h4 {
             margin: 0;
             font-weight: 500;
-            font-size: 16px;
+            font-size: 1rem;
         }
 
     .busqueda {
         position: relative;
-        width: 200px;
+        width: 100%;
+        max-width: 250px;
     }
 
         .busqueda input {
@@ -390,36 +392,37 @@
         padding: 15px;
         max-height: 600px;
         overflow-y: auto;
+        overflow-x: auto;
     }
 
     .formulario {
-        padding: 20px;
+        padding: 15px;
     }
 
     .form-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-        gap: 15px;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
     }
 
     .grupo-formulario {
-        margin-bottom: 15px;
+        margin-bottom: 12px;
     }
 
     label {
         display: block;
-        margin-bottom: 6px;
+        margin-bottom: 5px;
         font-weight: 500;
         color: #1A2E5A;
-        font-size: 14px;
+        font-size: 0.875rem;
     }
 
     input, select {
         width: 100%;
-        padding: 10px 12px;
+        padding: 8px 10px;
         border: 1px solid #ced4da;
         border-radius: 4px;
-        font-size: 14px;
+        font-size: 0.875rem;
         transition: border-color 0.2s;
     }
 
@@ -431,21 +434,22 @@
 
     .acciones-formulario {
         display: flex;
-        gap: 10px;
-        margin-top: 20px;
+        gap: 8px;
+        margin-top: 15px;
+        flex-wrap: wrap;
     }
 
     /* Tabla */
     table {
         width: 100%;
         border-collapse: collapse;
-        font-size: 14px;
+        font-size: 0.875rem;
     }
 
     th {
         background-color: #f8f9fa;
         color: #1A2E5A;
-        padding: 12px 15px;
+        padding: 10px 12px;
         text-align: left;
         font-weight: 600;
         border-bottom: 2px solid #e9ecef;
@@ -454,7 +458,7 @@
     }
 
     td {
-        padding: 12px 15px;
+        padding: 10px 12px;
         border-bottom: 1px solid #e9ecef;
         color: #495057;
     }
@@ -465,9 +469,9 @@
 
     .badge-tipo {
         display: inline-block;
-        padding: 4px 8px;
+        padding: 3px 6px;
         border-radius: 12px;
-        font-size: 12px;
+        font-size: 0.75rem;
         font-weight: 500;
     }
 
@@ -489,6 +493,7 @@
     .acciones {
         display: flex;
         gap: 5px;
+        flex-wrap: nowrap;
     }
 
         .acciones button {
@@ -528,8 +533,8 @@
 
     .icono-editar, .icono-eliminar, .icono-detalle {
         display: inline-block;
-        width: 18px;
-        height: 18px;
+        width: 16px;
+        height: 16px;
         background-size: contain;
         background-repeat: no-repeat;
     }
@@ -551,17 +556,17 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 40px 0;
+        padding: 30px 0;
         color: #6c757d;
     }
 
     .icono-cliente {
-        width: 50px;
-        height: 50px;
+        width: 40px;
+        height: 40px;
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236c757d'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E");
         background-size: contain;
         background-repeat: no-repeat;
-        margin-bottom: 15px;
+        margin-bottom: 10px;
     }
 
     /* Botones */
@@ -569,14 +574,15 @@
         background-color: #1A2E5A;
         color: white;
         border: none;
-        padding: 10px 20px;
+        padding: 8px 16px;
         border-radius: 4px;
         font-weight: 500;
         cursor: pointer;
         transition: background-color 0.2s;
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 5px;
+        font-size: 0.875rem;
     }
 
         .btn-guardar:hover {
@@ -587,14 +593,15 @@
         background-color: #6c757d;
         color: white;
         border: none;
-        padding: 10px 20px;
+        padding: 8px 16px;
         border-radius: 4px;
         font-weight: 500;
         cursor: pointer;
         transition: background-color 0.2s;
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 5px;
+        font-size: 0.875rem;
     }
 
         .btn-cancelar:hover {
@@ -603,8 +610,8 @@
 
     .icono-guardar, .icono-cancelar {
         display: inline-block;
-        width: 16px;
-        height: 16px;
+        width: 14px;
+        height: 14px;
         background-size: contain;
         background-repeat: no-repeat;
     }
@@ -618,20 +625,94 @@
     }
 
     /* Responsive */
-    @@media (max-width: 768px) {
-        .contenedor-principal {
-            flex-direction: column;
-        }
-
+    @@media (max-width: 992px) {
         .panel-lista, .panel-formulario {
             min-width: 100%;
+        }
+
+        .form-grid {
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        }
+    }
+
+    @@media (max-width: 768px) {
+        .gestor-clientes {
+            padding: 10px;
+        }
+
+        .titulo-principal {
+            font-size: 1.3rem;
+        }
+
+        .contenedor-principal {
+            gap: 15px;
         }
 
         .form-grid {
             grid-template-columns: 1fr;
         }
 
+        table {
+            display: block;
+            width: 100%;
+            overflow-x: auto;
+        }
+
         .acciones {
+            justify-content: flex-start;
+        }
+
+        .busqueda {
+            max-width: 100%;
+        }
+    }
+
+    @@media (max-width: 576px) {
+        .encabezado-panel {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .busqueda {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        table thead {
+            display: none;
+        }
+
+        table tr {
+            display: block;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        table td {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+            table td:before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: #1A2E5A;
+                margin-right: 10px;
+            }
+
+        .acciones-columna {
+            display: none;
+        }
+
+        .acciones {
+            justify-content: center;
+        }
+
+        .btn-guardar, .btn-cancelar {
+            width: 100%;
             justify-content: center;
         }
     }
