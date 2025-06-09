@@ -1,4 +1,6 @@
 ﻿using Distribuidora_La_Central.Web.Models;
+using iTextSharp.text.pdf;
+using iTextSharp.text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
@@ -473,5 +475,109 @@ namespace Distribuidora_La_Central.Web.Controllers
                 return Ok(creditos);
             }
         }
+
+        [HttpGet]
+        [Route("DescargarReporteCreditos")]
+        public IActionResult DescargarReporteCreditos()
+        {
+            using (SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                // Consulta corregida - calculamos el saldo actual como saldoMaximo menos abonos
+                string query = @"SELECT 
+                c.idCredito,
+                c.codigoFactura,
+                cl.nombre + ' ' + cl.apellido AS cliente,
+                c.fechaInicial,
+                c.fechaFinal,
+                c.saldoMaximo,
+                (c.saldoMaximo - ISNULL((SELECT SUM(a.montoAbono) 
+                                       FROM Abono a 
+                                       WHERE a.codigoFactura = c.codigoFactura), 0)) AS saldoActual,
+                c.estado
+            FROM Credito c
+            INNER JOIN Factura f ON c.codigoFactura = f.codigoFactura
+            INNER JOIN Cliente cl ON f.codigoCliente = cl.codigoCliente";
+
+                SqlDataAdapter da = new SqlDataAdapter(query, con);
+                DataTable dt = new DataTable();
+                da.Fill(dt);
+
+                using (var stream = new MemoryStream())
+                {
+                    var document = new Document(PageSize.A4.Rotate()); // Horizontal
+                    PdfWriter.GetInstance(document, stream).CloseStream = false;
+                    document.Open();
+
+                    // Fuentes
+                    var fontTitle = FontFactory.GetFont("Arial", 18, Font.BOLD);
+                    var fontHeader = FontFactory.GetFont("Arial", 10, Font.BOLD, BaseColor.WHITE);
+                    var fontCell = FontFactory.GetFont("Arial", 9);
+                    var fontCellRed = FontFactory.GetFont("Arial", 9, Font.NORMAL, BaseColor.RED);
+                    var fontCellGreen = FontFactory.GetFont("Arial", 9, Font.NORMAL, BaseColor.GREEN);
+
+                    // Título
+                    document.Add(new Paragraph("Reporte de Créditos", fontTitle));
+                    document.Add(Chunk.NEWLINE);
+
+                    // Tabla con 8 columnas
+                    PdfPTable table = new PdfPTable(8);
+                    table.WidthPercentage = 100;
+
+                    // Anchos de columnas optimizados
+                    float[] columnWidths = new float[] { 1f, 1.5f, 3f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f };
+                    table.SetWidths(columnWidths);
+
+                    // Encabezados
+                    AddHeaderCell(table, "ID Crédito", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Factura", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Cliente", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Fecha Inicio", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Fecha Vencimiento", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Límite Crédito", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Saldo Actual", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Estado", fontHeader, BaseColor.DARK_GRAY);
+
+                    // Datos con manejo de nulos y formato
+                    foreach (DataRow row in dt.Rows)
+                    {
+                        table.AddCell(new Phrase(row["idCredito"].ToString(), fontCell));
+                        table.AddCell(new Phrase(row["codigoFactura"].ToString(), fontCell));
+                        table.AddCell(new Phrase(row["cliente"]?.ToString() ?? "-", fontCell));
+                        table.AddCell(new Phrase(Convert.ToDateTime(row["fechaInicial"]).ToString("dd/MM/yyyy"), fontCell));
+                        table.AddCell(new Phrase(Convert.ToDateTime(row["fechaFinal"]).ToString("dd/MM/yyyy"), fontCell));
+                        table.AddCell(new Phrase(Convert.ToDecimal(row["saldoMaximo"]).ToString("C2"), fontCell));
+
+                        // Saldo actual calculado
+                        decimal saldoActual = Convert.ToDecimal(row["saldoActual"]);
+                        table.AddCell(new Phrase(saldoActual.ToString("C2"),
+                            saldoActual < 0 ? fontCellRed : fontCell));
+
+                        // Resaltar estado
+                        string estado = row["estado"]?.ToString() ?? "";
+                        table.AddCell(new Phrase(estado,
+                            estado == "Activo" ? fontCellGreen : fontCell));
+                    }
+
+                    document.Add(table);
+                    document.Close();
+
+                    stream.Position = 0;
+                    return File(stream.ToArray(), "application/pdf", "Reporte_Creditos.pdf");
+                }
+            }
+        }
+
+        // Método auxiliar para celdas de encabezado
+        private void AddHeaderCell(PdfPTable table, string text, Font font, BaseColor bgColor)
+        {
+            PdfPCell cell = new PdfPCell(new Phrase(text, font));
+            cell.BackgroundColor = bgColor;
+            cell.HorizontalAlignment = Element.ALIGN_CENTER;
+            cell.Padding = 5;
+            table.AddCell(cell);
+        }
+
+
+
     }
 }

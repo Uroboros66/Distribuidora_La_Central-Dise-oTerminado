@@ -24,6 +24,17 @@
 
 
 
+    private async Task DescargarPdf()
+    {
+        var url = Navigation.ToAbsoluteUri("/api/Compra/DescargarReporteCompras").ToString();
+        await JSV.InvokeVoidAsync("open", url, "_blank");
+    }
+
+    [Inject] NavigationManager Navigation { get; set; }
+    [Inject] IJSRuntime JSV { get; set; }
+
+
+
     private string GetMetodoPagoIcon(string metodo)
     {
         return metodo switch
@@ -571,6 +582,11 @@
                         <button class="btn btn-primary" @onclick="AplicarFiltros">
                             <i class="fas fa-filter"></i> Filtrar
                         </button>
+
+                        <button class="download-button" @onclick="DescargarPdf">
+                            <i class="fas fa-file-pdf"></i> Descargar PDF
+                        </button>
+
                     </div>
 
 

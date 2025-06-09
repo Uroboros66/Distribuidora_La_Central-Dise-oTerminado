@@ -1,4 +1,6 @@
 ﻿using Distribuidora_La_Central.Web.Models;
+using iTextSharp.text.pdf;
+using iTextSharp.text;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
@@ -206,6 +208,9 @@ namespace Distribuidora_La_Central.Web.Controllers
             }
         }
 
+
+
+
         [HttpPost]
         [Route("AgregarCompra")]
         public IActionResult AgregarCompra([FromBody] CompraConDetalles compraConDetalles)
@@ -213,8 +218,6 @@ namespace Distribuidora_La_Central.Web.Controllers
             try
             {
                 using SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-
-                // Iniciar transacción
                 con.Open();
                 using SqlTransaction transaction = con.BeginTransaction();
 
@@ -222,33 +225,45 @@ namespace Distribuidora_La_Central.Web.Controllers
                 {
                     // 1. Insertar la compra principal
                     string queryCompra = @"INSERT INTO Compra (idProveedor, fechaCompra, TotalCompra, Estado, FechaPago, MetodoPago)
-                                 OUTPUT INSERTED.idCompra
-                                 VALUES (@idProveedor, @fechaCompra, @TotalCompra, @Estado, @FechaPago, @MetodoPago)";
+                         OUTPUT INSERTED.idCompra
+                         VALUES (@idProveedor, @fechaCompra, @TotalCompra, @Estado, @FechaPago, @MetodoPago)";
 
                     int idCompra;
-
                     using (SqlCommand cmd = new SqlCommand(queryCompra, con, transaction))
                     {
                         cmd.Parameters.AddWithValue("@idProveedor", compraConDetalles.Compra.idProveedor);
                         cmd.Parameters.AddWithValue("@fechaCompra", compraConDetalles.Compra.fechaCompra);
                         cmd.Parameters.AddWithValue("@TotalCompra", compraConDetalles.Compra.TotalCompra);
-                        cmd.Parameters.AddWithValue("@Estado", compraConDetalles.Compra.Estado ?? (object)DBNull.Value);
+                        cmd.Parameters.AddWithValue("@Estado", compraConDetalles.Compra.Estado ?? "Pendiente");
                         cmd.Parameters.AddWithValue("@FechaPago", compraConDetalles.Compra.FechaPago ?? (object)DBNull.Value);
                         cmd.Parameters.AddWithValue("@MetodoPago", compraConDetalles.Compra.MetodoPago ?? (object)DBNull.Value);
 
                         idCompra = (int)cmd.ExecuteScalar();
                     }
 
-                    // 2. Insertar los detalles de la compra
+                    // 2. Procesar detalles y actualizar cantidad en productos
                     if (compraConDetalles.Detalles != null && compraConDetalles.Detalles.Any())
                     {
                         string queryDetalle = @"INSERT INTO DetalleCompra 
-                                    (IdCompra, CodigoProducto, Cantidad, PrecioUnitario, Subtotal)
-                                    VALUES 
-                                    (@IdCompra, @CodigoProducto, @Cantidad, @PrecioUnitario, @Subtotal)";
+                        (IdCompra, CodigoProducto, Cantidad, PrecioUnitario, Subtotal)
+                        VALUES 
+                        (@IdCompra, @CodigoProducto, @Cantidad, @PrecioUnitario, @Subtotal)";
+
+                        // Usamos 'cantidad' que es el campo correcto según tu modelo Producto
+                        string queryActualizarCantidad = @"UPDATE Producto 
+                                              SET cantidad = cantidad + @Cantidad
+                                              WHERE codigoProducto = @CodigoProducto";
 
                         foreach (var detalle in compraConDetalles.Detalles)
                         {
+                            // Validar cantidad
+                            if (detalle.Cantidad <= 0)
+                            {
+                                transaction.Rollback();
+                                return BadRequest(new { error = $"La cantidad debe ser mayor que cero para el producto {detalle.CodigoProducto}" });
+                            }
+
+                            // Insertar detalle de compra
                             using (SqlCommand cmdDetalle = new SqlCommand(queryDetalle, con, transaction))
                             {
                                 decimal subtotal = detalle.Cantidad * detalle.PrecioUnitario;
@@ -261,15 +276,39 @@ namespace Distribuidora_La_Central.Web.Controllers
 
                                 cmdDetalle.ExecuteNonQuery();
                             }
+
+                            // Actualizar cantidad en producto
+                            using (SqlCommand cmdCantidad = new SqlCommand(queryActualizarCantidad, con, transaction))
+                            {
+                                cmdCantidad.Parameters.AddWithValue("@CodigoProducto", detalle.CodigoProducto);
+                                cmdCantidad.Parameters.AddWithValue("@Cantidad", detalle.Cantidad);
+                                int rowsAffected = cmdCantidad.ExecuteNonQuery();
+
+                                if (rowsAffected == 0)
+                                {
+                                    transaction.Rollback();
+                                    return BadRequest(new { error = $"Producto con código {detalle.CodigoProducto} no encontrado" });
+                                }
+                            }
                         }
                     }
 
-                    // Commit si todo sale bien
                     transaction.Commit();
-                    return Ok(new CompraResponse
+                    return Ok(new
                     {
                         idCompra = idCompra,
-                        message = "Compra registrada exitosamente"
+                        message = "Compra registrada exitosamente",
+                        detallesCount = compraConDetalles.Detalles?.Count ?? 0
+                    });
+                }
+                catch (SqlException sqlEx)
+                {
+                    transaction.Rollback();
+                    return StatusCode(500, new
+                    {
+                        error = "Error en la base de datos",
+                        details = sqlEx.Message,
+                        columnError = sqlEx.Errors.Count > 0 ? sqlEx.Errors[0].ToString() : ""
                     });
                 }
                 catch (Exception ex)
@@ -277,13 +316,18 @@ namespace Distribuidora_La_Central.Web.Controllers
                     transaction.Rollback();
                     return StatusCode(500, new
                     {
-                        error = $"Error interno del servidor: {ex.Message}"
+                        error = $"Error al procesar la compra: {ex.Message}",
+                        innerError = ex.InnerException?.Message
                     });
                 }
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error de conexión: {ex.Message}");
+                return StatusCode(500, new
+                {
+                    error = $"Error de conexión: {ex.Message}",
+                    innerError = ex.InnerException?.Message
+                });
             }
         }
         // Clases DTO para la solicitud
@@ -348,5 +392,238 @@ namespace Distribuidora_La_Central.Web.Controllers
             else
                 return NotFound(new { message = "Compra no encontrada." });
         }
+
+
+
+        [HttpGet]
+        [Route("DescargarReporteCompras")]
+        public IActionResult DescargarReporteCompras()
+        {
+            using (SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                // Consulta con los campos requeridos
+                string query = @"SELECT 
+                c.idCompra,
+                c.idProveedor,
+                p.nombre AS nombreProveedor,
+                c.fechaCompra,
+                c.TotalCompra,
+                c.Estado,
+                c.FechaPago,
+                c.MetodoPago
+            FROM Compra c
+            INNER JOIN Proveedor p ON c.idProveedor = p.idProveedor";
+
+                SqlDataAdapter da = new SqlDataAdapter(query, con);
+                DataTable dt = new DataTable();
+                da.Fill(dt);
+
+                using (var stream = new MemoryStream())
+                {
+                    var document = new Document(PageSize.A4.Rotate()); // Horizontal
+                    PdfWriter.GetInstance(document, stream).CloseStream = false;
+                    document.Open();
+
+                    // Fuentes
+                    var fontTitle = FontFactory.GetFont("Arial", 18, Font.BOLD);
+                    var fontHeader = FontFactory.GetFont("Arial", 10, Font.BOLD, BaseColor.WHITE);
+                    var fontCell = FontFactory.GetFont("Arial", 9);
+
+                    // Título
+                    document.Add(new Paragraph("Reporte de Compras", fontTitle));
+                    document.Add(Chunk.NEWLINE);
+
+                    // Tabla con 8 columnas
+                    PdfPTable table = new PdfPTable(8);
+                    table.WidthPercentage = 100;
+
+                    // Anchos de columnas optimizados
+                    float[] columnWidths = new float[] { 1f, 1f, 2f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f };
+                    table.SetWidths(columnWidths);
+
+                    // Encabezados
+                    AddHeaderCell(table, "ID Compra", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "ID Proveedor", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Proveedor", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Fecha Compra", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Total", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Estado", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Fecha Pago", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Método Pago", fontHeader, BaseColor.DARK_GRAY);
+
+                    // Datos con manejo de nulos y formato
+                    foreach (DataRow row in dt.Rows)
+                    {
+                        table.AddCell(new Phrase(row["idCompra"].ToString(), fontCell));
+                        table.AddCell(new Phrase(row["idProveedor"].ToString(), fontCell));
+                        table.AddCell(new Phrase(row["nombreProveedor"]?.ToString() ?? "-", fontCell));
+                        table.AddCell(new Phrase(Convert.ToDateTime(row["fechaCompra"]).ToString("dd/MM/yyyy"), fontCell));
+                        table.AddCell(new Phrase(Convert.ToDecimal(row["TotalCompra"]).ToString("C2"), fontCell));
+                        table.AddCell(new Phrase(row["Estado"]?.ToString() ?? "-", fontCell));
+
+                        // Manejo de FechaPago nullable
+                        if (row["FechaPago"] != DBNull.Value)
+                        {
+                            table.AddCell(new Phrase(Convert.ToDateTime(row["FechaPago"]).ToString("dd/MM/yyyy"), fontCell));
+                        }
+                        else
+                        {
+                            table.AddCell(new Phrase("-", fontCell));
+                        }
+
+                        table.AddCell(new Phrase(row["MetodoPago"]?.ToString() ?? "-", fontCell));
+                    }
+
+                    document.Add(table);
+                    document.Close();
+
+                    stream.Position = 0;
+                    return File(stream.ToArray(), "application/pdf", "Reporte_Compras.pdf");
+                }
+            }
+        }
+
+        // Método auxiliar para celdas de encabezado
+        private void AddHeaderCell(PdfPTable table, string text, Font font, BaseColor bgColor)
+        {
+            PdfPCell cell = new PdfPCell(new Phrase(text, font));
+            cell.BackgroundColor = bgColor;
+            cell.HorizontalAlignment = Element.ALIGN_CENTER;
+            cell.Padding = 5;
+            table.AddCell(cell);
+        }
+
+        [HttpGet]
+        [Route("DescargarReporteDeudasPendientes")]
+        public IActionResult DescargarReporteDeudasPendientes()
+        {
+            using (SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                // Consulta simplificada con solo los campos necesarios
+                string query = @"SELECT 
+                        c.idCompra,
+                        c.Estado,
+                        c.TotalCompra,
+                        c.fechaCompra,
+                        p.nombre AS nombreProveedor
+                    FROM Compra c
+                    INNER JOIN Proveedor p ON c.idProveedor = p.idProveedor
+                    WHERE c.Estado = 'Pendiente'";
+
+                SqlDataAdapter da = new SqlDataAdapter(query, con);
+                DataTable dt = new DataTable();
+                da.Fill(dt);
+
+                using (var stream = new MemoryStream())
+                {
+                    var document = new Document(PageSize.A4.Rotate()); // Horizontal
+                    PdfWriter.GetInstance(document, stream).CloseStream = false;
+                    document.Open();
+
+                    // Fuentes
+                    var fontTitle = FontFactory.GetFont("Arial", 18, Font.BOLD);
+                    var fontHeader = FontFactory.GetFont("Arial", 10, Font.BOLD, BaseColor.WHITE);
+                    var fontCell = FontFactory.GetFont("Arial", 9);
+
+                    // Título
+                    document.Add(new Paragraph("Reporte de Deudas Pendientes", fontTitle));
+                    document.Add(Chunk.NEWLINE);
+
+                    // Tabla con 5 columnas (reducidas)
+                    PdfPTable table = new PdfPTable(5);
+                    table.WidthPercentage = 100;
+
+                    // Anchos de columnas optimizados
+                    float[] columnWidths = new float[] { 1f, 2f, 1.5f, 1.5f, 1.5f };
+                    table.SetWidths(columnWidths);
+
+                    // Encabezados simplificados
+                    AddHeaderCell(table, "ID Compra", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Proveedor", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Fecha Compra", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Total", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Estado", fontHeader, BaseColor.DARK_GRAY);
+
+                    // Datos
+                    foreach (DataRow row in dt.Rows)
+                    {
+                        table.AddCell(new Phrase(row["idCompra"].ToString(), fontCell));
+                        table.AddCell(new Phrase(row["nombreProveedor"]?.ToString() ?? "-", fontCell));
+                        table.AddCell(new Phrase(Convert.ToDateTime(row["fechaCompra"]).ToString("dd/MM/yyyy"), fontCell));
+                        table.AddCell(new Phrase(Convert.ToDecimal(row["TotalCompra"]).ToString("C2"), fontCell));
+                        table.AddCell(new Phrase(row["Estado"]?.ToString() ?? "-", fontCell));
+                    }
+
+                    document.Add(table);
+                    document.Close();
+
+                    stream.Position = 0;
+                    return File(stream.ToArray(), "application/pdf", "Reporte_Deudas_Pendientes.pdf");
+                }
+            }
+        }
+
+
+
+        [HttpGet]
+        [Route("Deudas")]
+        public IActionResult GetDeudasPendientes()
+        {
+            try
+            {
+                using SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                con.Open();
+
+                // Consulta actualizada para incluir los nuevos campos
+                string query = @"SELECT 
+                c.idCompra,
+                c.idProveedor,
+                p.nombre AS ProveedorNombre,
+                c.fechaCompra,
+                c.TotalCompra,
+                c.Estado,
+                c.FechaPago,
+                c.MetodoPago
+            FROM Compra c
+            INNER JOIN Proveedor p ON c.idProveedor = p.idProveedor
+            WHERE c.Estado = 'Pendiente'
+            ORDER BY c.fechaCompra DESC";
+
+                using SqlCommand cmd = new SqlCommand(query, con);
+                SqlDataAdapter da = new SqlDataAdapter(cmd);
+                DataTable dt = new DataTable();
+                da.Fill(dt);
+
+                List<CompraConProveedor> deudasList = new List<CompraConProveedor>();
+
+                foreach (DataRow row in dt.Rows)
+                {
+                    var deuda = new CompraConProveedor
+                    {
+                        idCompra = Convert.ToInt32(row["idCompra"]),
+                        idProveedor = Convert.ToInt32(row["idProveedor"]),
+                        fechaCompra = Convert.ToDateTime(row["fechaCompra"]),
+                        TotalCompra = Convert.ToDecimal(row["TotalCompra"]),
+                        Estado = Convert.ToString(row["Estado"]),
+                        FechaPago = row["FechaPago"] != DBNull.Value ? Convert.ToDateTime(row["FechaPago"]) : (DateTime?)null,
+                        MetodoPago = Convert.ToString(row["MetodoPago"]),
+                        Proveedor = new ProveedorInfo
+                        {
+                            idProveedor = Convert.ToInt32(row["idProveedor"]),
+                            nombre = Convert.ToString(row["ProveedorNombre"])
+                        }
+                    };
+                    deudasList.Add(deuda);
+                }
+
+                return Ok(deudasList);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = $"Error al obtener deudas pendientes: {ex.Message}" });
+            }
+        }
+
+
     }
 }

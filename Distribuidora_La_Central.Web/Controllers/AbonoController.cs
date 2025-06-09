@@ -1,4 +1,6 @@
 ﻿using Distribuidora_La_Central.Web.Models;
+using iTextSharp.text.pdf;
+using iTextSharp.text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
@@ -114,7 +116,7 @@ namespace Distribuidora_La_Central.Web.Controllers
 
 
                         decimal nuevoSaldo = saldoActual - abono.montoAbono;
-                        string nuevoEstado = nuevoSaldo <= 0 ? "Pagado" : "Activo";
+                        string nuevoEstado = nuevoSaldo <= 0 ? "Cancelado" : "Activo";
 
                         SqlCommand cmdUpdateCredito = new SqlCommand(
                             @"UPDATE Credito 
@@ -229,7 +231,7 @@ namespace Distribuidora_La_Central.Web.Controllers
 
                             // 4. Actualizar crédito
                             decimal nuevoSaldo = saldoActual - abono.montoAbono;
-                            string nuevoEstado = nuevoSaldo <= 0 ? "Pagado" : "Activo";
+                            string nuevoEstado = nuevoSaldo <= 0 ? "Cancelado" : "Activo";
 
                             var cmdActualizarCredito = new SqlCommand(
                                 @"UPDATE Credito 
@@ -325,5 +327,91 @@ namespace Distribuidora_La_Central.Web.Controllers
             else
                 return StatusCode(500, "Error al eliminar el abono.");
         }
+
+
+        [HttpGet]
+        [Route("DescargarReporteAbonos")]
+        public IActionResult DescargarReporteAbonos()
+        {
+            using (SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                // Consulta con los campos necesarios
+                string query = @"SELECT 
+                a.idAbono, 
+                a.codigoFactura, 
+                c.nombre + ' ' + c.apellido as Cliente,
+                a.montoAbono, 
+                a.fechaAbono,
+                cr.saldoMaximo as SaldoRestante
+            FROM Abono a
+            INNER JOIN Factura f ON a.codigoFactura = f.codigoFactura
+            INNER JOIN Cliente c ON f.codigoCliente = c.codigoCliente
+            INNER JOIN Credito cr ON a.codigoFactura = cr.codigoFactura";
+
+                SqlDataAdapter da = new SqlDataAdapter(query, con);
+                DataTable dt = new DataTable();
+                da.Fill(dt);
+
+                using (var stream = new MemoryStream())
+                {
+                    var document = new Document(PageSize.A4.Rotate()); // Horizontal
+                    PdfWriter.GetInstance(document, stream).CloseStream = false;
+                    document.Open();
+
+                    // Fuentes
+                    var fontTitle = FontFactory.GetFont("Arial", 18, Font.BOLD);
+                    var fontHeader = FontFactory.GetFont("Arial", 10, Font.BOLD, BaseColor.WHITE);
+                    var fontCell = FontFactory.GetFont("Arial", 9);
+
+                    // Título
+                    document.Add(new Paragraph("Reporte de Abonos", fontTitle));
+                    document.Add(Chunk.NEWLINE);
+
+                    // Tabla con 6 columnas
+                    PdfPTable table = new PdfPTable(6);
+                    table.WidthPercentage = 100;
+
+                    // Anchos de columnas optimizados
+                    float[] columnWidths = new float[] { 1f, 1.5f, 3f, 2f, 2f, 2f };
+                    table.SetWidths(columnWidths);
+
+                    // Encabezados
+                    AddHeaderCell(table, "ID Abono", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Factura", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Cliente", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Monto", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Fecha", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Saldo Restante", fontHeader, BaseColor.DARK_GRAY);
+
+                    // Datos con manejo de nulos y formato
+                    foreach (DataRow row in dt.Rows)
+                    {
+                        table.AddCell(new Phrase(row["idAbono"].ToString(), fontCell));
+                        table.AddCell(new Phrase(row["codigoFactura"].ToString(), fontCell));
+                        table.AddCell(new Phrase(row["Cliente"]?.ToString() ?? "-", fontCell));
+                        table.AddCell(new Phrase(Convert.ToDecimal(row["montoAbono"]).ToString("C2"), fontCell));
+                        table.AddCell(new Phrase(Convert.ToDateTime(row["fechaAbono"]).ToString("dd/MM/yyyy"), fontCell));
+                        table.AddCell(new Phrase(Convert.ToDecimal(row["SaldoRestante"]).ToString("C2"), fontCell));
+                    }
+
+                    document.Add(table);
+                    document.Close();
+
+                    stream.Position = 0;
+                    return File(stream.ToArray(), "application/pdf", "Reporte_Abonos.pdf");
+                }
+            }
+        }
+
+        // Método auxiliar para celdas de encabezado (el mismo que ya tienes)
+        private void AddHeaderCell(PdfPTable table, string text, Font font, BaseColor bgColor)
+        {
+            PdfPCell cell = new PdfPCell(new Phrase(text, font));
+            cell.BackgroundColor = bgColor;
+            cell.HorizontalAlignment = Element.ALIGN_CENTER;
+            cell.Padding = 5;
+            table.AddCell(cell);
+        }
+
     }
 }

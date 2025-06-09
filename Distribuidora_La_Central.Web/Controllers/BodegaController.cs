@@ -1,4 +1,6 @@
 ﻿using Distribuidora_La_Central.Web.Models;
+using iTextSharp.text.pdf;
+using iTextSharp.text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
@@ -101,6 +103,103 @@ public class BodegaController : ControllerBase
         }
     }
 
+
+    [HttpGet]
+    [Route("DescargarReporteBodegas")]
+    public IActionResult DescargarReporteBodegas()
+    {
+        using (SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        {
+            // Consulta básica con solo los campos de Bodega
+            string query = @"SELECT 
+                idBodega, 
+                nombre, 
+                ubicacion,
+                responsable,
+                fecha
+            FROM Bodega";
+
+            SqlDataAdapter da = new SqlDataAdapter(query, con);
+            DataTable dt = new DataTable();
+            da.Fill(dt);
+
+            using (var stream = new MemoryStream())
+            {
+                var document = new Document(PageSize.A4.Rotate()); // Horizontal
+                PdfWriter.GetInstance(document, stream).CloseStream = false;
+                document.Open();
+
+                // Fuentes
+                var fontTitle = FontFactory.GetFont("Arial", 18, Font.BOLD);
+                var fontHeader = FontFactory.GetFont("Arial", 10, Font.BOLD, BaseColor.WHITE);
+                var fontCell = FontFactory.GetFont("Arial", 9);
+
+                // Título
+                document.Add(new Paragraph("Reporte de Bodegas", fontTitle));
+                document.Add(Chunk.NEWLINE);
+
+                // Tabla con 5 columnas
+                PdfPTable table = new PdfPTable(5);
+                table.WidthPercentage = 100;
+
+                // Anchos de columnas optimizados
+                float[] columnWidths = new float[] { 1f, 2f, 3f, 2f, 2f };
+                table.SetWidths(columnWidths);
+
+                // Encabezados
+                AddHeaderCell(table, "ID", fontHeader, BaseColor.DARK_GRAY);
+                AddHeaderCell(table, "Nombre", fontHeader, BaseColor.DARK_GRAY);
+                AddHeaderCell(table, "Ubicación", fontHeader, BaseColor.DARK_GRAY);
+                AddHeaderCell(table, "Responsable ID", fontHeader, BaseColor.DARK_GRAY);
+                AddHeaderCell(table, "Fecha Registro", fontHeader, BaseColor.DARK_GRAY);
+
+                // Datos con manejo de nulos y formato
+                foreach (DataRow row in dt.Rows)
+                {
+                    table.AddCell(new Phrase(row["idBodega"].ToString(), fontCell));
+                    table.AddCell(new Phrase(row["nombre"]?.ToString() ?? "-", fontCell));
+                    table.AddCell(new Phrase(row["ubicacion"]?.ToString() ?? "-", fontCell));
+
+                    // Manejo del responsable (ID numérico)
+                    if (row["responsable"] == DBNull.Value)
+                    {
+                        table.AddCell(new Phrase("-", fontCell));
+                    }
+                    else
+                    {
+                        table.AddCell(new Phrase(row["responsable"].ToString(), fontCell));
+                    }
+
+                    // Formatear fecha o mostrar "-" si es nula/minima
+                    if (row["fecha"] == DBNull.Value)
+                    {
+                        table.AddCell(new Phrase("-", fontCell));
+                    }
+                    else
+                    {
+                        DateTime fecha = Convert.ToDateTime(row["fecha"]);
+                        table.AddCell(new Phrase(fecha.ToString("dd/MM/yyyy"), fontCell));
+                    }
+                }
+
+                document.Add(table);
+                document.Close();
+
+                stream.Position = 0;
+                return File(stream.ToArray(), "application/pdf", "Reporte_Bodegas.pdf");
+            }
+        }
+    }
+
+    // Método auxiliar para celdas de encabezado (el mismo que ya tienes)
+    private void AddHeaderCell(PdfPTable table, string text, Font font, BaseColor bgColor)
+    {
+        PdfPCell cell = new PdfPCell(new Phrase(text, font));
+        cell.BackgroundColor = bgColor;
+        cell.HorizontalAlignment = Element.ALIGN_CENTER;
+        cell.Padding = 5;
+        table.AddCell(cell);
+    }
 
 
 }

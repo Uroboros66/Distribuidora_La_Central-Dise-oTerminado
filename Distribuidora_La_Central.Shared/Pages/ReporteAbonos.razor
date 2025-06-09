@@ -1,0 +1,72 @@
+@page "/reporte-abonos"
+@inject HttpClient Http
+@using Distribuidora_La_Central.Shared.Models
+
+<h3>Reporte de Abonos</h3>
+
+<input @bind="filtro" placeholder="Buscar..." class="form-control mb-3" />
+<button class="download-button" @onclick="DescargarPdf">
+    <i class="fas fa-file-pdf"></i> Descargar PDF
+</button>
+
+@if (itemsFiltrados == null)
+{
+    <p>Cargando datos...</p>
+}
+else if (itemsFiltrados.Count == 0)
+{
+    <p>No se encontraron datos.</p>
+}
+else
+{
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                @foreach (var prop in typeof(Abono).GetProperties())
+                {
+                    <th>@prop.Name</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in itemsFiltrados)
+            {
+                <tr>
+                    @foreach (var prop in typeof(Abono).GetProperties())
+                    {
+                        <td>@prop.GetValue(item)</td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Abono> items = new();
+    private string filtro = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        items = await Http.GetFromJsonAsync<List<Abono>>("api/Abono/GetAllAbonos");
+    }
+
+    private List<Abono> itemsFiltrados =>
+    string.IsNullOrWhiteSpace(filtro)
+    ? items
+    : items.Where(x => x.idAbono.ToString().Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                      x.codigoFactura.ToString().Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                      x.montoAbono.ToString().Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                      x.fechaAbono.ToString().Contains(filtro, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    private async Task DescargarPdf()
+    {
+        var url = Navigation.ToAbsoluteUri("/api/Abono/DescargarReporteAbonos").ToString();
+        await JS.InvokeVoidAsync("open", url, "_blank");
+    }
+
+    [Inject] NavigationManager Navigation { get; set; }
+    [Inject] IJSRuntime JS { get; set; }
+
+
+}

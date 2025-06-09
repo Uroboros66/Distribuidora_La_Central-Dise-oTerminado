@@ -1,0 +1,74 @@
+@page "/reporte-creditos"
+@inject HttpClient Http
+@using Distribuidora_La_Central.Shared.Models
+
+<h3>Reporte de Creditos</h3>
+
+<input @bind="filtro" placeholder="Buscar..." class="form-control mb-3" />
+
+<button class="download-button" @onclick="DescargarPdf">
+    <i class="fas fa-file-pdf"></i> Descargar PDF
+</button>
+
+@if (itemsFiltrados == null)
+{
+    <p>Cargando datos...</p>
+}
+else if (itemsFiltrados.Count == 0)
+{
+    <p>No se encontraron datos.</p>
+}
+else
+{
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                @foreach (var prop in typeof(Credito).GetProperties())
+                {
+                    <th>@prop.Name</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in itemsFiltrados)
+            {
+                <tr>
+                    @foreach (var prop in typeof(Credito).GetProperties())
+                    {
+                        <td>@prop.GetValue(item)</td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Credito> items = new();
+    private string filtro = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        items = await Http.GetFromJsonAsync<List<Credito>>("api/Credito/GetAllCreditos");
+    }
+
+    private List<Credito> itemsFiltrados =>
+    string.IsNullOrWhiteSpace(filtro)
+    ? items
+    : items.Where(x => x.idCredito.ToString().Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                      x.codigoFactura.ToString().Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                      x.fechaInicial.ToString().Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                      x.fechaFinal.ToString().Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                      x.saldoMaximo.ToString().Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                      x.saldoActual.ToString().Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                      x.estado.Contains(filtro, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    private async Task DescargarPdf()
+    {
+        var url = Navigation.ToAbsoluteUri("/api/Credito/DescargarReporteCreditos").ToString();
+        await JS.InvokeVoidAsync("open", url, "_blank");
+    }
+
+    [Inject] NavigationManager Navigation { get; set; }
+    [Inject] IJSRuntime JS { get; set; }
+}

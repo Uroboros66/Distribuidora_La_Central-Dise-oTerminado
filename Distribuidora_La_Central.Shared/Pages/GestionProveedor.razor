@@ -78,7 +78,7 @@
                                 <th>Contacto</th>
                                 <th>Teléfono</th>
                                 <th>Fecha Ingreso</th>
-                                <th>Acciones</th>
+                                <th class="acciones-columna">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -515,7 +515,7 @@
         {
             if (modoEditar)
             {
-                var response = await Http.PutAsJsonAsync($"api/Proveedor/actualizar/{nuevoProveedor.idProveedor}", nuevoProveedor);
+                var response = await Http.PutAsJsonAsync($"api/Proveedor/ActualizarProveedor/{nuevoProveedor.idProveedor}", nuevoProveedor);
                 if (response.IsSuccessStatusCode)
                 {
                     modoEditar = false;
@@ -563,7 +563,7 @@
     {
         try
         {
-            var response = await Http.DeleteAsync($"api/Proveedor/eliminar/{idProveedor}");
+            var response = await Http.DeleteAsync($"api/Proveedor/EliminarProveedor/{idProveedor}");
             if (response.IsSuccessStatusCode)
             {
                 await CargarProveedores();

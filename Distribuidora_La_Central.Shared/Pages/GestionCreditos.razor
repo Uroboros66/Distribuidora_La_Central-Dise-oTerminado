@@ -94,9 +94,7 @@
                                     <td>@credito.codigoFactura</td>
                                     <td class="text-truncate" style="max-width:100px;">@credito.NombreCliente</td>
                                     <td>@credito.FechaInicial.ToString("dd/MM/yy")</td>
-                                    <td class="@(credito.Estado == "Vencido" ? "text-danger fw-bold" : "")">
-                                        @credito.FechaFinal.ToString("dd/MM/yy")
-                                    </td>
+                                    <td>@(credito.Estado == "Cancelado" ? "Inactivo" : credito.Estado)</td>
                                     <td class="text-end">@credito.SaldoMaximo.ToString("C0")</td>
                                     <td>
                                         <span class="badge @GetBadgeClass(credito.Estado) rounded-pill px-2 py-1">
@@ -412,9 +410,9 @@
         }
     }
 
-  
 
-  
+
+
     private List<Factura> facturasPendientes = new List<Factura>();
     private List<CreditoModel> listaCreditos = new List<CreditoModel>();
     private List<CreditoClienteView> listaClientes = new List<CreditoClienteView>();
@@ -430,7 +428,7 @@
     private int totalPaginas = 1;
 
 
-  
+
 
     // Inicialización
     protected override async Task OnInitializedAsync()
@@ -663,9 +661,9 @@
     }
 
 
-    
+
     // Clases CSS para badges
-  
+
 }
 
 

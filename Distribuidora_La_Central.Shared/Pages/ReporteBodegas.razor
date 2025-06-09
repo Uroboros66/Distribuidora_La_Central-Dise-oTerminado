@@ -1,0 +1,75 @@
+@page "/reporte-bodegas"
+@inject HttpClient Http
+@using Distribuidora_La_Central.Shared.Models
+
+
+<h3>Reporte de Bodegas</h3>
+
+<input @bind="filtro" placeholder="Buscar..." class="form-control mb-3" />
+
+<button class="download-button" @onclick="DescargarPdf">
+    <i class="fas fa-file-pdf"></i> Descargar PDF
+</button>
+
+@if (itemsFiltrados == null)
+{
+    <p>Cargando datos...</p>
+}
+else if (itemsFiltrados.Count == 0)
+{
+    <p>No se encontraron datos.</p>
+}
+else
+{
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                @foreach (var prop in typeof(Bodega).GetProperties())
+                {
+                    <th>@prop.Name</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in itemsFiltrados)
+            {
+                <tr>
+                    @foreach (var prop in typeof(Bodega).GetProperties())
+                    {
+                        <td>@prop.GetValue(item)</td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Bodega> items = new();
+    private string filtro = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        items = await Http.GetFromJsonAsync<List<Bodega>>("api/Bodega/obtener-todos");
+    }
+
+    private List<Bodega> itemsFiltrados =>
+    string.IsNullOrWhiteSpace(filtro)
+    ? items
+    : items.Where(x => x.idBodega.ToString().Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                      x.nombre.Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                      x.ubicacion.Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                      x.responsable.ToString().Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                      x.fecha.ToString().Contains(filtro, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    private async Task DescargarPdf()
+    {
+        var url = Navigation.ToAbsoluteUri("/api/Bodega/DescargarReporteBodegas").ToString();
+        await JS.InvokeVoidAsync("open", url, "_blank");
+    }
+
+    [Inject] NavigationManager Navigation { get; set; }
+    [Inject] IJSRuntime JS { get; set; }
+
+
+}

@@ -1,4 +1,6 @@
 ﻿using Distribuidora_La_Central.Web.Models;
+using iTextSharp.text.pdf;
+using iTextSharp.text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
@@ -97,8 +99,135 @@ namespace Distribuidora_La_Central.Web.Controllers
         }
 
 
+        [HttpDelete]
+        [Route("EliminarProveedor/{id}")]
+        public IActionResult EliminarProveeddor(int id)
+        {
+            try
+            {
+                using SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+                string query = "DELETE FROM Proveedor WHERE idProveedor = @id";
+                using SqlCommand cmd = new SqlCommand(query, con);
+                cmd.Parameters.AddWithValue("@id", id);
+                con.Open();
+                int rowsAffected = cmd.ExecuteNonQuery();
+
+                if (rowsAffected > 0)
+                    return Ok(new { message = "Proveedor eliminado correctamente" });
+                else
+                    return NotFound(new { message = "Proveedor no encontrado" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = $"Error al eliminar proveedor: {ex.Message}" });
+            }
+        }
+
+        [HttpPut]
+        [Route("ActualizarProveedor/{id}")]
+        public IActionResult ActualizarProveedor(int id, [FromBody] Proveedor proveedor)
+        {
+            using SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+            string query = @"UPDATE Proveedor SET 
+                    nombre = @nombre,
+                    razonSocial = @razonSocial,
+                    contacto = @contacto,
+                    telefono = @telefono,
+                    diaIngreso = @diaIngreso
+                 WHERE idProveedor = @idProveedor";
+
+            using SqlCommand cmd = new SqlCommand(query, con);
+            cmd.Parameters.AddWithValue("@idProveedor", id);
+            cmd.Parameters.AddWithValue("@nombre", proveedor.nombre);
+            cmd.Parameters.AddWithValue("@razonSocial", proveedor.razonSocial);
+            cmd.Parameters.AddWithValue("@contacto", proveedor.contacto);
+            cmd.Parameters.AddWithValue("@telefono", proveedor.telefono);
+            cmd.Parameters.AddWithValue("@diaIngreso", proveedor.diaIngreso);
+
+            con.Open();
+            int rowsAffected = cmd.ExecuteNonQuery();
+
+            if (rowsAffected > 0)
+                return Ok(new { message = "Proveedor actualizado correctamente." });
+            else
+                return NotFound(new { message = "Proveedor no encontrado." });
+        }
 
 
+        [HttpGet]
+        [Route("DescargarReporteProveedores")]
+        public IActionResult DescargarReporteProveedores()
+        {
+            using (SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                // Consulta específica con solo los campos requeridos
+                string query = @"SELECT idProveedor, nombre, razonSocial, contacto, telefono, diaIngreso
+                FROM Proveedor";
+
+                SqlDataAdapter da = new SqlDataAdapter(query, con);
+                DataTable dt = new DataTable();
+                da.Fill(dt);
+
+                using (var stream = new MemoryStream())
+                {
+                    var document = new Document(PageSize.A4.Rotate()); // Horizontal
+                    PdfWriter.GetInstance(document, stream).CloseStream = false;
+                    document.Open();
+
+                    // Fuentes (consistentes con el otro reporte)
+                    var fontTitle = FontFactory.GetFont("Arial", 18, Font.BOLD);
+                    var fontHeader = FontFactory.GetFont("Arial", 10, Font.BOLD, BaseColor.WHITE);
+                    var fontCell = FontFactory.GetFont("Arial", 9);
+
+                    // Título
+                    document.Add(new Paragraph("Reporte de Proveedores", fontTitle));
+                    document.Add(Chunk.NEWLINE);
+
+                    // Tabla con 6 columnas
+                    PdfPTable table = new PdfPTable(6);
+                    table.WidthPercentage = 100;
+
+                    // Anchos de columnas optimizados
+                    float[] columnWidths = new float[] { 1f, 2f, 2.5f, 2f, 1.5f, 1f };
+                    table.SetWidths(columnWidths);
+
+                    // Encabezados (mismo estilo que facturas)
+                    AddHeaderCell(table, "ID", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Nombre", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Razón Social", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Contacto", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Teléfono", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Día Ingreso", fontHeader, BaseColor.DARK_GRAY);
+
+                    // Datos con manejo de nulos
+                    foreach (DataRow row in dt.Rows)
+                    {
+                        table.AddCell(new Phrase(row["idProveedor"].ToString(), fontCell));
+                        table.AddCell(new Phrase(row["nombre"]?.ToString() ?? "-", fontCell));
+                        table.AddCell(new Phrase(row["razonSocial"]?.ToString() ?? "-", fontCell));
+                        table.AddCell(new Phrase(row["contacto"]?.ToString() ?? "-", fontCell));
+                        table.AddCell(new Phrase(row["telefono"]?.ToString() ?? "-", fontCell));
+                        table.AddCell(new Phrase(row["diaIngreso"]?.ToString() ?? "-", fontCell));
+                    }
+
+                    document.Add(table);
+                    document.Close();
+
+                    stream.Position = 0;
+                    return File(stream.ToArray(), "application/pdf", "Reporte_Proveedores.pdf");
+                }
+            }
+        }
+
+        // Método auxiliar idéntico al original
+        private void AddHeaderCell(PdfPTable table, string text, Font font, BaseColor bgColor)
+        {
+            PdfPCell cell = new PdfPCell(new Phrase(text, font));
+            cell.BackgroundColor = bgColor;
+            cell.HorizontalAlignment = Element.ALIGN_CENTER;
+            cell.Padding = 5;
+            table.AddCell(cell);
+        }
 
 
     }

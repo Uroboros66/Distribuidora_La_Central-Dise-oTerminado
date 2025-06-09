@@ -1,4 +1,4 @@
-﻿namespace Distribuidora_La_Central.Web.Models
+﻿namespace Distribuidora_La_Central.Shared.Models
 {
     public class Bodega
     {

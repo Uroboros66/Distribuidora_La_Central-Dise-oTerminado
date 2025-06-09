@@ -1,0 +1,74 @@
+@page "/reporte-compras"
+@inject HttpClient Http
+@using Distribuidora_La_Central.Shared.Models
+
+<h3>Reporte de Compras</h3>
+
+<input @bind="filtro" placeholder="Buscar..." class="form-control mb-3" />
+
+<button class="download-button" @onclick="DescargarPdf">
+    <i class="fas fa-file-pdf"></i> Descargar PDF
+</button>
+
+@if (itemsFiltrados == null)
+{
+    <p>Cargando datos...</p>
+}
+else if (itemsFiltrados.Count == 0)
+{
+    <p>No se encontraron datos.</p>
+}
+else
+{
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                @foreach (var prop in typeof(Compra).GetProperties())
+                {
+                    <th>@prop.Name</th>
+                }
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in itemsFiltrados)
+            {
+                <tr>
+                    @foreach (var prop in typeof(Compra).GetProperties())
+                    {
+                        <td>@prop.GetValue(item)</td>
+                    }
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Compra> items = new();
+    private string filtro = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        items = await Http.GetFromJsonAsync<List<Compra>>("api/Compra/GetAllCompras");
+    }
+
+    private List<Compra> itemsFiltrados =>
+      string.IsNullOrWhiteSpace(filtro)
+      ? items
+      : items.Where(x => x.idCompra.ToString().Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                        x.idProveedor.ToString().Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                        x.fechaCompra.ToString().Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                        x.TotalCompra.ToString().Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                        x.Estado.Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                        (x.FechaPago.HasValue && x.FechaPago.Value.ToString().Contains(filtro, StringComparison.OrdinalIgnoreCase)) ||
+                        x.MetodoPago.Contains(filtro, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    private async Task DescargarPdf()
+    {
+        var url = Navigation.ToAbsoluteUri("/api/Compra/DescargarReporteCompras").ToString();
+        await JS.InvokeVoidAsync("open", url, "_blank");
+    }
+
+    [Inject] NavigationManager Navigation { get; set; }
+    [Inject] IJSRuntime JS { get; set; }
+}

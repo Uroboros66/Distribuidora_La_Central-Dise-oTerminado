@@ -1,11 +1,13 @@
-﻿
-using Distribuidora_La_Central.Web.Models;
+﻿using Distribuidora_La_Central.Web.Models;
+using iTextSharp.text;
+using iTextSharp.text.pdf;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
 using System.Data;
 using System.Data.SqlClient;
+
 
 namespace Distribuidora_La_Central.Web.Controllers
 {
@@ -89,51 +91,33 @@ namespace Distribuidora_La_Central.Web.Controllers
 
                 try
                 {
-                    // 1. Insertar la factura
-                    string queryFactura = @"INSERT INTO Factura 
-                 (codigoCliente, fecha, totalFactura, saldo, tipo, estado)
-                 OUTPUT INSERTED.codigoFactura
-                 VALUES (@codigoCliente, @fecha, @totalFactura, @saldo, @tipo, @estado)";
-
-                    int codigoFactura;
-                    using (SqlCommand cmd = new SqlCommand(queryFactura, con, transaction))
+                    // 1. Validar stock antes de procesar la factura
+                    foreach (var detalle in facturaConDetalles.Detalles)
                     {
-                        // Parámetros existentes...
-                        cmd.Parameters.AddWithValue("@codigoCliente", facturaConDetalles.Factura.codigoCliente);
-                        cmd.Parameters.AddWithValue("@fecha", facturaConDetalles.Factura.fecha);
-                        cmd.Parameters.AddWithValue("@totalFactura", facturaConDetalles.Factura.totalFactura);
-
-                        // Calcular saldo inicial
-                        decimal saldoInicial = facturaConDetalles.Factura.tipo == "Contado" ? 0 : facturaConDetalles.Factura.totalFactura;
-                        cmd.Parameters.AddWithValue("@saldo", saldoInicial);
-
-                        cmd.Parameters.AddWithValue("@tipo", facturaConDetalles.Factura.tipo);
-                        cmd.Parameters.AddWithValue("@estado", facturaConDetalles.Factura.tipo == "Contado" ? "Pagado" : "Pendiente");
-
-                        codigoFactura = (int)cmd.ExecuteScalar();
+                        if (!ValidarStockDisponible(con, transaction, detalle.codigoProducto, detalle.cantidad))
+                        {
+                            transaction.Rollback();
+                            return BadRequest(new { error = $"Stock insuficiente para el producto {detalle.codigoProducto}" });
+                        }
                     }
 
-                    // 2. Insertar detalles de factura (código existente...)
+                    // 2. Insertar la factura
+                    int codigoFactura = InsertarFactura(con, transaction, facturaConDetalles.Factura);
 
-                    // 3. Si es crédito, insertar en la tabla de créditos
+                    // 3. Insertar detalles y actualizar inventario
+                    foreach (var detalle in facturaConDetalles.Detalles)
+                    {
+                        // Calcular subtotal
+                        detalle.subtotal = detalle.cantidad * detalle.precioUnitario;
+
+                        InsertarDetalleFactura(con, transaction, codigoFactura, detalle);
+                        ActualizarInventario(con, transaction, detalle.codigoProducto, detalle.cantidad);
+                    }
+
+                    // 4. Si es crédito, registrar en tabla de créditos
                     if (facturaConDetalles.Factura.tipo == "Crédito")
                     {
-                        DateTime fechaVencimiento = facturaConDetalles.Factura.fecha.AddDays(30);
-
-                        string queryCredito = @"INSERT INTO Credito 
-                     (codigoFactura, fechaInicial, fechaFinal, saldoMaximo, estado)
-                     VALUES 
-                     (@codigoFactura, @fechaInicial, @fechaFinal, @saldoMaximo, @estado)";
-
-                        using SqlCommand cmd = new SqlCommand(queryCredito, con, transaction);
-                        cmd.Parameters.AddWithValue("@codigoFactura", codigoFactura);
-                        cmd.Parameters.AddWithValue("@fechaInicial", facturaConDetalles.Factura.fecha);
-                        cmd.Parameters.AddWithValue("@fechaFinal", fechaVencimiento);
-                        cmd.Parameters.AddWithValue("@saldoMaximo", facturaConDetalles.Factura.totalFactura);
-
-                        cmd.Parameters.AddWithValue("@estado", "Activo");
-
-                        cmd.ExecuteNonQuery();
+                        RegistrarCredito(con, transaction, codigoFactura, facturaConDetalles.Factura);
                     }
 
                     transaction.Commit();
@@ -150,6 +134,82 @@ namespace Distribuidora_La_Central.Web.Controllers
                 return StatusCode(500, new { error = "Error de conexión", details = ex.Message });
             }
         }
+
+        #region Métodos Auxiliares
+
+        private bool ValidarStockDisponible(SqlConnection con, SqlTransaction transaction, int codigoProducto, int cantidadRequerida)
+        {
+            string query = "SELECT cantidad FROM Producto WHERE codigoProducto = @codigoProducto";
+            using SqlCommand cmd = new SqlCommand(query, con, transaction);
+            cmd.Parameters.AddWithValue("@codigoProducto", codigoProducto);
+
+            int stockActual = Convert.ToInt32(cmd.ExecuteScalar());
+            return stockActual >= cantidadRequerida;
+        }
+
+        private int InsertarFactura(SqlConnection con, SqlTransaction transaction, Factura factura)
+        {
+            string query = @"INSERT INTO Factura 
+                          (codigoCliente, fecha, totalFactura, saldo, tipo, estado)
+                          OUTPUT INSERTED.codigoFactura
+                          VALUES (@codigoCliente, @fecha, @totalFactura, @saldo, @tipo, @estado)";
+
+            using SqlCommand cmd = new SqlCommand(query, con, transaction);
+            cmd.Parameters.AddWithValue("@codigoCliente", factura.codigoCliente);
+            cmd.Parameters.AddWithValue("@fecha", factura.fecha);
+            cmd.Parameters.AddWithValue("@totalFactura", factura.totalFactura);
+
+            decimal saldoInicial = factura.tipo == "Contado" ? 0 : factura.totalFactura;
+            cmd.Parameters.AddWithValue("@saldo", saldoInicial);
+
+            cmd.Parameters.AddWithValue("@tipo", factura.tipo);
+            cmd.Parameters.AddWithValue("@estado", factura.tipo == "Contado" ? "Pagado" : "Pendiente");
+
+            return Convert.ToInt32(cmd.ExecuteScalar());
+        }
+
+        private void InsertarDetalleFactura(SqlConnection con, SqlTransaction transaction, int codigoFactura, DetalleFactura detalle)
+        {
+            string query = @"INSERT INTO DetalleFactura 
+                         (codigoFactura, codigoProducto, cantidad, precioUnitario, subtotal)
+                         VALUES (@codigoFactura, @codigoProducto, @cantidad, @precioUnitario, @subtotal)";
+
+            using SqlCommand cmd = new SqlCommand(query, con, transaction);
+            cmd.Parameters.AddWithValue("@codigoFactura", codigoFactura);
+            cmd.Parameters.AddWithValue("@codigoProducto", detalle.codigoProducto);
+            cmd.Parameters.AddWithValue("@cantidad", detalle.cantidad);
+            cmd.Parameters.AddWithValue("@precioUnitario", detalle.precioUnitario);
+            cmd.Parameters.AddWithValue("@subtotal", detalle.subtotal);
+
+            cmd.ExecuteNonQuery();
+        }
+
+        private void ActualizarInventario(SqlConnection con, SqlTransaction transaction, int codigoProducto, int cantidadVendida)
+        {
+            string query = "UPDATE Producto SET cantidad = cantidad - @cantidad WHERE codigoProducto = @codigoProducto";
+            using SqlCommand cmd = new SqlCommand(query, con, transaction);
+            cmd.Parameters.AddWithValue("@codigoProducto", codigoProducto);
+            cmd.Parameters.AddWithValue("@cantidad", cantidadVendida);
+            cmd.ExecuteNonQuery();
+        }
+
+        private void RegistrarCredito(SqlConnection con, SqlTransaction transaction, int codigoFactura, Factura factura)
+        {
+            DateTime fechaVencimiento = factura.fecha.AddDays(30);
+
+            string query = @"INSERT INTO Credito 
+                         (codigoFactura, fechaInicial, fechaFinal, saldoMaximo, estado)
+                         VALUES (@codigoFactura, @fechaInicial, @fechaFinal, @saldoMaximo, @estado)";
+
+            using SqlCommand cmd = new SqlCommand(query, con, transaction);
+            cmd.Parameters.AddWithValue("@codigoFactura", codigoFactura);
+            cmd.Parameters.AddWithValue("@fechaInicial", factura.fecha);
+            cmd.Parameters.AddWithValue("@fechaFinal", fechaVencimiento);
+            cmd.Parameters.AddWithValue("@saldoMaximo", factura.totalFactura);
+            cmd.Parameters.AddWithValue("@estado", "Activo");
+            cmd.ExecuteNonQuery();
+        }
+        #endregion
 
         // En el controlador FacturaController.cs
         [HttpGet("GetFacturasFiltradas")]
@@ -314,5 +374,131 @@ namespace Distribuidora_La_Central.Web.Controllers
                 return Ok(facturas);
             }
         }
+
+        [HttpGet]
+        [Route("DescargarReporteFacturas")]
+        public IActionResult DescargarReporteFacturas(string filtro = "")
+        {
+            using (SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                // Consulta base con JOIN para obtener el nombre del cliente
+                string query = @"SELECT 
+                f.codigoFactura,
+                f.codigoCliente,
+                cl.nombre + ' ' + cl.apellido AS cliente,
+                f.fecha,
+                f.totalFactura,
+                f.saldo,
+                f.tipo,
+                f.estado
+            FROM Factura f
+            INNER JOIN Cliente cl ON f.codigoCliente = cl.codigoCliente";
+
+                SqlDataAdapter da = new SqlDataAdapter(query, con);
+                DataTable dt = new DataTable();
+                da.Fill(dt);
+
+                // Aplicar filtro si se especificó
+                if (!string.IsNullOrEmpty(filtro))
+                {
+                    var filteredRows = dt.AsEnumerable().Where(row =>
+                        row.Field<string>("codigoFactura").Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                        row.Field<string>("codigoCliente").Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                        row.Field<DateTime>("fecha").ToString().Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                        row.Field<decimal>("totalFactura").ToString().Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                        row.Field<decimal>("saldo").ToString().Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                        row.Field<string>("tipo").Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                        row.Field<string>("estado").Contains(filtro, StringComparison.OrdinalIgnoreCase)).ToList();
+
+                    dt = filteredRows.Any() ? filteredRows.CopyToDataTable() : dt.Clone();
+                }
+
+                using (var stream = new MemoryStream())
+                {
+                    var document = new Document(PageSize.A4.Rotate()); // Horizontal
+                    PdfWriter.GetInstance(document, stream).CloseStream = false;
+                    document.Open();
+
+                    // Fuentes
+                    var fontTitle = FontFactory.GetFont("Arial", 18, Font.BOLD);
+                    var fontHeader = FontFactory.GetFont("Arial", 10, Font.BOLD, BaseColor.WHITE);
+                    var fontCell = FontFactory.GetFont("Arial", 9);
+                    var fontCellRed = FontFactory.GetFont("Arial", 9, Font.NORMAL, BaseColor.RED);
+                    var fontCellGreen = FontFactory.GetFont("Arial", 9, Font.NORMAL, BaseColor.GREEN);
+
+                    // Título con filtro aplicado (si existe)
+                    string titulo = string.IsNullOrEmpty(filtro)
+                        ? "Reporte de Facturas"
+                        : $"Reporte de Facturas (Filtrado por: '{filtro}')";
+
+                    document.Add(new Paragraph(titulo, fontTitle));
+                    document.Add(Chunk.NEWLINE);
+
+                    // Tabla con 8 columnas
+                    PdfPTable table = new PdfPTable(8);
+                    table.WidthPercentage = 100;
+
+                    // Anchos de columnas optimizados
+                    float[] columnWidths = new float[] { 1.5f, 1.5f, 3f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f };
+                    table.SetWidths(columnWidths);
+
+                    // Encabezados
+                    AddHeaderCell(table, "N° Factura", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Cód. Cliente", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Cliente", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Fecha", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Total", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Saldo", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Tipo", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Estado", fontHeader, BaseColor.DARK_GRAY);
+
+                    // Datos
+                    foreach (DataRow row in dt.Rows)
+                    {
+                        table.AddCell(new Phrase(row["codigoFactura"].ToString(), fontCell));
+                        table.AddCell(new Phrase(row["codigoCliente"].ToString(), fontCell));
+                        table.AddCell(new Phrase(row["cliente"]?.ToString() ?? "-", fontCell));
+                        table.AddCell(new Phrase(Convert.ToDateTime(row["fecha"]).ToString("dd/MM/yyyy"), fontCell));
+                        table.AddCell(new Phrase(Convert.ToDecimal(row["totalFactura"]).ToString("C2"), fontCell));
+
+                        // Saldo con color según valor
+                        decimal saldo = Convert.ToDecimal(row["saldo"]);
+                        table.AddCell(new Phrase(saldo.ToString("C2"),
+                            saldo > 0 ? fontCellRed : fontCell));
+
+                        table.AddCell(new Phrase(row["tipo"]?.ToString() ?? "-", fontCell));
+
+                        // Estado con color
+                        string estado = row["estado"]?.ToString() ?? "";
+                        table.AddCell(new Phrase(estado,
+                            estado == "Pagado" ? fontCellGreen : fontCell));
+                    }
+
+                    document.Add(table);
+
+                    // Pie de página con fecha de generación
+                    document.Add(Chunk.NEWLINE);
+                    document.Add(new Paragraph($"Generado el: {DateTime.Now.ToString("dd/MM/yyyy HH:mm")}", fontCell));
+
+                    document.Close();
+
+                    stream.Position = 0;
+                    return File(stream.ToArray(), "application/pdf", $"Reporte_Facturas_{DateTime.Now:yyyyMMddHHmmss}.pdf");
+                }
+            }
+        }
+
+        // Método auxiliar para celdas de encabezado (el mismo que antes)
+        private void AddHeaderCell(PdfPTable table, string text, Font font, BaseColor bgColor)
+        {
+            PdfPCell cell = new PdfPCell(new Phrase(text, font));
+            cell.BackgroundColor = bgColor;
+            cell.HorizontalAlignment = Element.ALIGN_CENTER;
+            cell.Padding = 5;
+            table.AddCell(cell);
+        }
+
+
+
     }
 }

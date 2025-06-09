@@ -1,4 +1,6 @@
 ﻿using Distribuidora_La_Central.Web.Models;
+using iTextSharp.text.pdf;
+using iTextSharp.text;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Newtonsoft.Json;
@@ -307,9 +309,264 @@ unidadMedida = @unidadMedida,
         }
 
 
+        [HttpGet]
+        [Route("DescargarReporteProductos")]
+        public IActionResult DescargarReporteProductos()
+        {
+            using (SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                // Consulta con joins para obtener nombres de categoría, bodega y proveedor
+                string query = @"SELECT 
+    p.codigoProducto,
+    p.descripcion,
+    p.cantidad,
+    cp.nombre AS categoria,
+    p.descuento,
+    p.costo,
+    b.nombre AS bodega,
+    prov.nombre AS proveedor,
+    p.idProveedor
+FROM Producto p
+LEFT JOIN CategoriaProducto cp ON p.idCategoria = cp.idCategoria
+LEFT JOIN Bodega b ON p.idBodega = b.idBodega
+LEFT JOIN Proveedor prov ON p.idProveedor = prov.idProveedor";
+
+                SqlDataAdapter da = new SqlDataAdapter(query, con);
+                DataTable dt = new DataTable();
+                da.Fill(dt);
+
+                using (var stream = new MemoryStream())
+                {
+                    var document = new Document(PageSize.A4.Rotate()); // Horizontal
+                    PdfWriter.GetInstance(document, stream).CloseStream = false;
+                    document.Open();
+
+                    // Fuentes
+                    var fontTitle = FontFactory.GetFont("Arial", 18, Font.BOLD);
+                    var fontHeader = FontFactory.GetFont("Arial", 10, Font.BOLD, BaseColor.WHITE);
+                    var fontCell = FontFactory.GetFont("Arial", 9);
+                    var fontCellRed = FontFactory.GetFont("Arial", 9, Font.NORMAL, BaseColor.RED);
+
+                    // Título
+                    document.Add(new Paragraph("Reporte de Productos", fontTitle));
+                    document.Add(Chunk.NEWLINE);
+
+                    // Tabla con 8 columnas
+                    PdfPTable table = new PdfPTable(8);
+                    table.WidthPercentage = 100;
+
+                    // Anchos de columnas optimizados
+                    float[] columnWidths = new float[] { 1f, 3f, 1f, 1.5f, 1f, 1.5f, 1.5f, 2f };
+                    table.SetWidths(columnWidths);
+
+                    // Encabezados
+                    AddHeaderCell(table, "Código", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Descripción", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Cantidad", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Categoría", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Descuento", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Costo", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Bodega", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Proveedor", fontHeader, BaseColor.DARK_GRAY);
+
+                    // Datos con manejo de nulos y formato
+                    foreach (DataRow row in dt.Rows)
+                    {
+                        table.AddCell(new Phrase(row["codigoProducto"].ToString(), fontCell));
+                        table.AddCell(new Phrase(row["descripcion"]?.ToString() ?? "-", fontCell));
+
+                        // Resaltar cantidad baja en rojo
+                        int cantidad = Convert.ToInt32(row["cantidad"]);
+                        table.AddCell(new Phrase(cantidad.ToString(),
+                            cantidad < 10 ? fontCellRed : fontCell));
+
+                        table.AddCell(new Phrase(row["categoria"]?.ToString() ?? "-", fontCell));
+                        table.AddCell(new Phrase(Convert.ToDecimal(row["descuento"]).ToString("P0"), fontCell)); // Formato porcentaje
+                        table.AddCell(new Phrase(Convert.ToDecimal(row["costo"]).ToString("C2"), fontCell));
+                        table.AddCell(new Phrase(row["bodega"]?.ToString() ?? "-", fontCell));
+                        table.AddCell(new Phrase(row["proveedor"]?.ToString() ?? "-", fontCell));
+                    }
+
+                    document.Add(table);
+                    document.Close();
+
+                    stream.Position = 0;
+                    return File(stream.ToArray(), "application/pdf", "Reporte_Productos.pdf");
+                }
+            }
+        }
+
+        // Método auxiliar para celdas de encabezado
+        private void AddHeaderCell(PdfPTable table, string text, Font font, BaseColor bgColor)
+        {
+            PdfPCell cell = new PdfPCell(new Phrase(text, font));
+            cell.BackgroundColor = bgColor;
+            cell.HorizontalAlignment = Element.ALIGN_CENTER;
+            cell.Padding = 5;
+            table.AddCell(cell);
+        }
 
 
 
+
+
+
+        [HttpGet]
+        [Route("GetProductosParaTabla")]
+        public IActionResult GetProductosParaTabla()
+        {
+            try
+            {
+                using SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
+
+                // Query con joins para obtener los nombres de categoría y bodega
+                string query = @"
+            SELECT 
+                p.codigoProducto, 
+                p.descripcion, 
+                p.cantidad, 
+                p.costo, 
+                p.items, 
+                p.idProveedor, 
+                p.idCategoria,
+                cp.nombre AS nombreCategoria,
+                p.descuento, 
+                p.idBodega,
+                b.nombre AS nombreBodega,
+                p.unidadMedida, 
+                p.margenGanancia
+            FROM Producto p
+            LEFT JOIN CategoriaProducto cp ON p.idCategoria = cp.idCategoria
+            LEFT JOIN Bodega b ON p.idBodega = b.idBodega";
+
+                SqlDataAdapter da = new SqlDataAdapter(query, con);
+                DataTable dt = new DataTable();
+                da.Fill(dt);
+
+                var productoList = new List<object>();
+
+                if (dt.Rows.Count > 0)
+                {
+                    foreach (DataRow row in dt.Rows)
+                    {
+                        var producto = new
+                        {
+                            codigoProducto = row["codigoProducto"] != DBNull.Value ? Convert.ToInt32(row["codigoProducto"]) : 0,
+                            descripcion = row["descripcion"] != DBNull.Value ? Convert.ToString(row["descripcion"]) : string.Empty,
+                            cantidad = row["cantidad"] != DBNull.Value ? Convert.ToInt32(row["cantidad"]) : 0,
+                            costo = row["costo"] != DBNull.Value ? Convert.ToDecimal(row["costo"]) : 0m,
+                            items = row["items"] != DBNull.Value ? Convert.ToInt32(row["items"]) : 0,
+                            idProveedor = row["idProveedor"] != DBNull.Value ? Convert.ToInt32(row["idProveedor"]) : 0,
+                            idCategoria = row["idCategoria"] != DBNull.Value ? Convert.ToInt32(row["idCategoria"]) : 0,
+                            nombreCategoria = row["nombreCategoria"] != DBNull.Value ? Convert.ToString(row["nombreCategoria"]) : "N/A",
+                            descuento = row["descuento"] != DBNull.Value ? Convert.ToDecimal(row["descuento"]) : 0m,
+                            idBodega = row["idBodega"] != DBNull.Value ? Convert.ToInt32(row["idBodega"]) : 0,
+                            nombreBodega = row["nombreBodega"] != DBNull.Value ? Convert.ToString(row["nombreBodega"]) : "N/A",
+                            unidadMedida = row["unidadMedida"] != DBNull.Value ? Convert.ToString(row["unidadMedida"]) : string.Empty,
+                            margenGanancia = row["margenGanancia"] != DBNull.Value ? Convert.ToDecimal(row["margenGanancia"]) : 0m
+                        };
+                        productoList.Add(producto);
+                    }
+                    return Ok(productoList);
+                }
+                return NotFound(new { StatusCode = 404, Message = "No se encontraron productos" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { StatusCode = 500, Message = "Error al obtener productos para tabla", Error = ex.Message });
+            }
+        }
+
+
+        [HttpGet]
+        [Route("DescargarReporteInventario")]
+        public IActionResult DescargarReporteInventario()
+        {
+            using (SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                // Consulta con joins para obtener nombres de categoría y bodega
+                string query = @"
+            SELECT 
+                p.codigoProducto,
+                p.descripcion,
+                p.cantidad,
+                p.unidadMedida,
+                cp.nombre AS categoria,
+                p.descuento,
+                p.costo,
+                p.items,
+                b.nombre AS bodega
+            FROM Producto p
+            LEFT JOIN CategoriaProducto cp ON p.idCategoria = cp.idCategoria
+            LEFT JOIN Bodega b ON p.idBodega = b.idBodega";
+
+                SqlDataAdapter da = new SqlDataAdapter(query, con);
+                DataTable dt = new DataTable();
+                da.Fill(dt);
+
+                using (var stream = new MemoryStream())
+                {
+                    var document = new Document(PageSize.A4.Rotate()); // Horizontal
+                    PdfWriter.GetInstance(document, stream).CloseStream = false;
+                    document.Open();
+
+                    // Fuentes (consistentes con el otro reporte)
+                    var fontTitle = FontFactory.GetFont("Arial", 18, Font.BOLD);
+                    var fontHeader = FontFactory.GetFont("Arial", 10, Font.BOLD, BaseColor.WHITE);
+                    var fontCell = FontFactory.GetFont("Arial", 9);
+
+                    // Título
+                    document.Add(new Paragraph("Reporte de Inventario", fontTitle));
+                    document.Add(Chunk.NEWLINE);
+
+                    // Tabla con las columnas necesarias
+                    PdfPTable table = new PdfPTable(9);
+                    table.WidthPercentage = 100;
+
+                    // Anchos de columnas optimizados para los datos de productos
+                    float[] columnWidths = new float[] { 1f, 3f, 1f, 1f, 2f, 1f, 1.5f, 1f, 2f };
+                    table.SetWidths(columnWidths);
+
+                    // Encabezados (mismo estilo que clientes)
+                    AddHeaderCell(table, "Código", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Descripción", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Cantidad", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Unidad", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Categoría", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Descuento", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Costo", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Items", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Bodega", fontHeader, BaseColor.DARK_GRAY);
+
+                    // Datos con manejo de nulos y formato específico
+                    foreach (DataRow row in dt.Rows)
+                    {
+                        table.AddCell(new Phrase(row["codigoProducto"].ToString(), fontCell));
+                        table.AddCell(new Phrase(row["descripcion"]?.ToString() ?? "-", fontCell));
+                        table.AddCell(new Phrase(row["cantidad"].ToString(), fontCell));
+                        table.AddCell(new Phrase(row["unidadMedida"]?.ToString() ?? "-", fontCell));
+                        table.AddCell(new Phrase(row["categoria"]?.ToString() ?? "N/A", fontCell));
+
+                        // Formatear descuento como porcentaje
+                        var descuento = row["descuento"] != DBNull.Value ? Convert.ToDecimal(row["descuento"]) : 0m;
+                        table.AddCell(new Phrase(descuento.ToString("P1"), fontCell));
+
+                        // Formatear costo con formato monetario
+                        var costo = row["costo"] != DBNull.Value ? Convert.ToDecimal(row["costo"]) : 0m;
+                        table.AddCell(new Phrase(costo.ToString("C2"), fontCell));
+
+                        table.AddCell(new Phrase(row["items"].ToString(), fontCell));
+                        table.AddCell(new Phrase(row["bodega"]?.ToString() ?? "N/A", fontCell));
+                    }
+
+                    document.Add(table);
+                    document.Close();
+
+                    stream.Position = 0;
+                    return File(stream.ToArray(), "application/pdf", $"Reporte_Inventario_{DateTime.Now:yyyyMMddHHmmss}.pdf");
+                }
+            }
+        }
 
 
     }

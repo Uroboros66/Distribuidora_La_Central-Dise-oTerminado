@@ -1,4 +1,6 @@
 ﻿using Distribuidora_La_Central.Web.Models;
+using iTextSharp.text.pdf;
+using iTextSharp.text;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
@@ -110,7 +112,7 @@ public class UsuarioController : ControllerBase
         cmd.Parameters.AddWithValue("@nombre", usuario.nombre);
         cmd.Parameters.AddWithValue("@rol", usuario.rol);
         cmd.Parameters.AddWithValue("@codigoAcceso", usuario.codigoAcceso);
-       
+
 
         con.Open();
         int rowsAffected = cmd.ExecuteNonQuery();
@@ -145,5 +147,77 @@ public class UsuarioController : ControllerBase
         }
     }
 
-   
+
+    [HttpGet]
+    [Route("DescargarReporteUsuarios")]
+    public IActionResult DescargarReporteUsuarios()
+    {
+        using (SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+        {
+            // Consulta específica con los campos requeridos
+            string query = @"SELECT idUsuario, nombre, rol, codigoAcceso
+                FROM Usuario";
+
+            SqlDataAdapter da = new SqlDataAdapter(query, con);
+            DataTable dt = new DataTable();
+            da.Fill(dt);
+
+            using (var stream = new MemoryStream())
+            {
+                var document = new Document(PageSize.A4.Rotate()); // Horizontal
+                PdfWriter.GetInstance(document, stream).CloseStream = false;
+                document.Open();
+
+                // Fuentes (consistentes con el otro reporte)
+                var fontTitle = FontFactory.GetFont("Arial", 18, Font.BOLD);
+                var fontHeader = FontFactory.GetFont("Arial", 10, Font.BOLD, BaseColor.WHITE);
+                var fontCell = FontFactory.GetFont("Arial", 9);
+
+                // Título
+                document.Add(new Paragraph("Reporte de Usuarios", fontTitle));
+                document.Add(Chunk.NEWLINE);
+
+                // Tabla con 4 columnas
+                PdfPTable table = new PdfPTable(4);
+                table.WidthPercentage = 100;
+
+                // Anchos de columnas optimizados
+                float[] columnWidths = new float[] { 1f, 2f, 1.5f, 1.5f };
+                table.SetWidths(columnWidths);
+
+                // Encabezados (mismo estilo que facturas)
+                AddHeaderCell(table, "ID Usuario", fontHeader, BaseColor.DARK_GRAY);
+                AddHeaderCell(table, "Nombre", fontHeader, BaseColor.DARK_GRAY);
+                AddHeaderCell(table, "Rol", fontHeader, BaseColor.DARK_GRAY);
+                AddHeaderCell(table, "Código Acceso", fontHeader, BaseColor.DARK_GRAY);
+
+                // Datos con manejo de nulos
+                foreach (DataRow row in dt.Rows)
+                {
+                    table.AddCell(new Phrase(row["idUsuario"].ToString(), fontCell));
+                    table.AddCell(new Phrase(row["nombre"]?.ToString() ?? "-", fontCell));
+                    table.AddCell(new Phrase(row["rol"]?.ToString() ?? "-", fontCell));
+                    table.AddCell(new Phrase(row["codigoAcceso"]?.ToString() ?? "-", fontCell));
+                }
+
+                document.Add(table);
+                document.Close();
+
+                stream.Position = 0;
+                return File(stream.ToArray(), "application/pdf", "Reporte_Usuarios.pdf");
+            }
+        }
+    }
+
+    // Método auxiliar idéntico al de clientes
+    private void AddHeaderCell(PdfPTable table, string text, Font font, BaseColor bgColor)
+    {
+        PdfPCell cell = new PdfPCell(new Phrase(text, font));
+        cell.BackgroundColor = bgColor;
+        cell.HorizontalAlignment = Element.ALIGN_CENTER;
+        cell.Padding = 5;
+        table.AddCell(cell);
+    }
+
+
 }
