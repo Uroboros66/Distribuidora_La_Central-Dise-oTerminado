@@ -309,6 +309,7 @@ unidadMedida = @unidadMedida,
         }
 
 
+
         [HttpGet]
         [Route("DescargarReporteProductos")]
         public IActionResult DescargarReporteProductos()
@@ -409,75 +410,6 @@ LEFT JOIN Proveedor prov ON p.idProveedor = prov.idProveedor";
 
 
 
-
-
-        [HttpGet]
-        [Route("GetProductosParaTabla")]
-        public IActionResult GetProductosParaTabla()
-        {
-            try
-            {
-                using SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-
-                // Query con joins para obtener los nombres de categoría y bodega
-                string query = @"
-            SELECT 
-                p.codigoProducto, 
-                p.descripcion, 
-                p.cantidad, 
-                p.costo, 
-                p.items, 
-                p.idProveedor, 
-                p.idCategoria,
-                cp.nombre AS nombreCategoria,
-                p.descuento, 
-                p.idBodega,
-                b.nombre AS nombreBodega,
-                p.unidadMedida, 
-                p.margenGanancia
-            FROM Producto p
-            LEFT JOIN CategoriaProducto cp ON p.idCategoria = cp.idCategoria
-            LEFT JOIN Bodega b ON p.idBodega = b.idBodega";
-
-                SqlDataAdapter da = new SqlDataAdapter(query, con);
-                DataTable dt = new DataTable();
-                da.Fill(dt);
-
-                var productoList = new List<object>();
-
-                if (dt.Rows.Count > 0)
-                {
-                    foreach (DataRow row in dt.Rows)
-                    {
-                        var producto = new
-                        {
-                            codigoProducto = row["codigoProducto"] != DBNull.Value ? Convert.ToInt32(row["codigoProducto"]) : 0,
-                            descripcion = row["descripcion"] != DBNull.Value ? Convert.ToString(row["descripcion"]) : string.Empty,
-                            cantidad = row["cantidad"] != DBNull.Value ? Convert.ToInt32(row["cantidad"]) : 0,
-                            costo = row["costo"] != DBNull.Value ? Convert.ToDecimal(row["costo"]) : 0m,
-                            items = row["items"] != DBNull.Value ? Convert.ToInt32(row["items"]) : 0,
-                            idProveedor = row["idProveedor"] != DBNull.Value ? Convert.ToInt32(row["idProveedor"]) : 0,
-                            idCategoria = row["idCategoria"] != DBNull.Value ? Convert.ToInt32(row["idCategoria"]) : 0,
-                            nombreCategoria = row["nombreCategoria"] != DBNull.Value ? Convert.ToString(row["nombreCategoria"]) : "N/A",
-                            descuento = row["descuento"] != DBNull.Value ? Convert.ToDecimal(row["descuento"]) : 0m,
-                            idBodega = row["idBodega"] != DBNull.Value ? Convert.ToInt32(row["idBodega"]) : 0,
-                            nombreBodega = row["nombreBodega"] != DBNull.Value ? Convert.ToString(row["nombreBodega"]) : "N/A",
-                            unidadMedida = row["unidadMedida"] != DBNull.Value ? Convert.ToString(row["unidadMedida"]) : string.Empty,
-                            margenGanancia = row["margenGanancia"] != DBNull.Value ? Convert.ToDecimal(row["margenGanancia"]) : 0m
-                        };
-                        productoList.Add(producto);
-                    }
-                    return Ok(productoList);
-                }
-                return NotFound(new { StatusCode = 404, Message = "No se encontraron productos" });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { StatusCode = 500, Message = "Error al obtener productos para tabla", Error = ex.Message });
-            }
-        }
-
-
         [HttpGet]
         [Route("DescargarReporteInventario")]
         public IActionResult DescargarReporteInventario()
@@ -567,6 +499,7 @@ LEFT JOIN Proveedor prov ON p.idProveedor = prov.idProveedor";
                 }
             }
         }
+
 
 
     }

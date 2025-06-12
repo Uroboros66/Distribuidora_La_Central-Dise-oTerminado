@@ -5,6 +5,9 @@
 @using System.Text.Json;
 @using System.Net.Http
 @using System.Net.Http.Json
+@using Microsoft.Maui.Storage
+@using Microsoft.Maui.ApplicationModel
+@using Microsoft.Maui.ApplicationModel.DataTransfer
 
 
 <style>
@@ -755,6 +758,20 @@
                         </div>
 
                         <div class="input-group">
+                            <label><i class="fas fa-ruler"></i> Unidad de Medida</label>
+                            <select @bind="detalleFactura.unidadMedida" class="select-style">
+                                <option value="">-- Seleccione unidad --</option>
+                                @foreach (var unidad in unidades)
+                                {
+                                    <option value="@unidad.Nombre">@unidad.Nombre</option>
+                                }
+                            </select>
+
+                        </div>
+
+
+
+                        <div class="input-group">
                             <label><i class="fas fa-calculator"></i> Cantidad</label>
                             <input type="number" @bind="detalleFactura.cantidad" min="1" class="input-style" />
                         </div>
@@ -774,6 +791,7 @@
                                         <th><i class="fas fa-align-left"></i> Descripción</th>
                                         <th><i class="fas fa-tag"></i> Precio</th>
                                         <th><i class="fas fa-calculator"></i> Cantidad</th>
+                                        <th><i class="fas fa-ruler"></i> Unidad</th>
                                         <th><i class="fas fa-money-bill-wave"></i> Subtotal</th>
                                         <th><i class="fas fa-cog"></i> Acciones</th>
                                     </tr>
@@ -786,7 +804,8 @@
                                             <td>@(productos.FirstOrDefault(p => p.codigoProducto == detalle.codigoProducto)?.descripcion)</td>
                                             <td>@detalle.precioUnitario.ToString("F2")</td>
                                             <td>@detalle.cantidad</td>
-                                            <td>@((detalle.cantidad * detalle.precioUnitario).ToString("F2"))</td>
+                                            <td>@detalle.unidadMedida</td>
+                                            <td>@detalle.subtotal.ToString("F2")</td>
                                             <td>
                                                 <button type="button" class="btn-remove-product"
                                                         @onclick="@(() => EliminarProducto(detalle.codigoProducto))">
@@ -798,8 +817,8 @@
                                 </tbody>
                                 <tfoot>
                                     <tr>
-                                        <td colspan="4" class="text-right"><strong>Total:</strong></td>
-                                        <td><strong>@detallesFactura.Sum(d => d.cantidad * d.precioUnitario).ToString("F2")</strong></td>
+                                        <td colspan="5" class="text-right"><strong>Total:</strong></td>
+                                        <td><strong>@detallesFactura.Sum(d => d.subtotal).ToString("F2")</strong></td>
                                         <td></td>
                                     </tr>
                                 </tfoot>
@@ -908,9 +927,9 @@
                     <i class="fas fa-filter"></i> @(mostrarFiltros ? "Ocultar Filtros" : "Mostrar Filtros")
                 </button>
 
-                <button class="download-button" @onclick="DescargarPdf">
+                @* <button class="download-button" @onclick="DescargarPdf">
                     <i class="fas fa-file-pdf"></i> Descargar PDF
-                </button>
+                </button> *@
             </div>
 
             @if (mostrarFiltros)
@@ -1149,6 +1168,14 @@
                                         <button class="btn-delete" @onclick="() => EliminarFactura(f.codigoFactura)">
                                             <i class="fas fa-trash-alt"></i>
                                         </button>
+                                        @* <button class="btn btn-view" @onclick="() => MostrarDetalleFactura(factura.codigoFactura)" title="Ver detalle">
+                                            👁
+                                        </button> *@
+
+
+                                        <button class="btn btn-print" @onclick="() => DescargarPdfFactura(f)">
+                                            <i class="fas fa-print"></i> Imprimir
+                                        </button>
                                     </td>
                                 </tr>
                             }
@@ -1217,6 +1244,35 @@
     private decimal montoFacturaSeleccionada;
     private decimal saldoFacturaSeleccionada;
 
+    private Factura? facturaSelect;
+    private List<DetalleFactura> detalleFacturaSeleccionada = new ();
+
+
+    List<UnidadMedida> unidades = new()
+{
+    new UnidadMedida { IdUnidad = 1, Nombre = "Unidad" },
+    new UnidadMedida { IdUnidad = 2, Nombre = "Kilogramo" },
+    new UnidadMedida { IdUnidad = 3, Nombre = "Litro" },
+    new UnidadMedida { IdUnidad = 4, Nombre = "Metro" },
+    new UnidadMedida { IdUnidad = 5, Nombre = "Caja" },
+    new UnidadMedida { IdUnidad = 6, Nombre = "Lata" },
+    new UnidadMedida { IdUnidad = 7, Nombre = "Paquete" }
+};
+
+
+    private string mensaje = string.Empty;
+
+    private async Task CargarUnidades()
+    {
+        try
+        {
+            unidades = await Http.GetFromJsonAsync<List<UnidadMedida>>("api/UnidadMedida") ?? new();
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"❌ Error al cargar unidades de medida: {ex.Message}";
+        }
+    }
 
     private void ToggleFiltros()
     {
@@ -1301,6 +1357,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await CargarUnidades();
         await CargarProductos();
         await CargarClientes();
         await CargarFacturas();
@@ -1393,6 +1450,12 @@
         if (productoSeleccionado == null || productoSeleccionado.codigoProducto == 0 || detalleFactura.cantidad <= 0)
             return;
 
+        if (string.IsNullOrWhiteSpace(detalleFactura.unidadMedida))
+        {
+            Console.WriteLine("Unidad de medida no seleccionada.");
+            return;
+        }
+
         var detalleExistente = detallesFactura.FirstOrDefault(d => d.codigoProducto == productoSeleccionado.codigoProducto);
 
         if (detalleExistente != null)
@@ -1407,16 +1470,16 @@
                     codigoProducto = productoSeleccionado.codigoProducto,
                     cantidad = detalleFactura.cantidad,
                     precioUnitario = productoSeleccionado.costo,
-                    subtotal = detalleFactura.cantidad * productoSeleccionado.costo
+                    subtotal = detalleFactura.cantidad * productoSeleccionado.costo,
+                    unidadMedida = detalleFactura.unidadMedida // ✅ Aquí va directamente el valor del select
                 });
         }
 
-        // Actualizar totales
         factura.totalFactura = detallesFactura.Sum(d => d.subtotal);
         factura.saldo = factura.totalFactura;
-
-
     }
+
+
 
     private void EliminarProducto(int codigoProducto)
     {
@@ -1737,6 +1800,8 @@
         public List<DetalleFactura> Detalles { get; set; }
     }
 
+    
+
     public class FacturaResponse
     {
         public int codigoFactura { get; set; }
@@ -1756,14 +1821,61 @@
     }
 
 
-    private async Task DescargarPdf()
+    private async Task DescargarPdfFactura(Factura factura)
     {
-        var url = Navigation.ToAbsoluteUri("/api/Factura/DescargarReporteFacturas").ToString();
-        await JSV.InvokeVoidAsync("open", url, "_blank");
+        try
+        {
+            // Usa el código de la factura pasada como parámetro
+            int codigoFactura = factura.codigoFactura;
+            string apiUrl = $"api/Factura/DescargarReporteFactura/{codigoFactura}";
+
+            // 1. Descargar el PDF desde la API
+            var response = await Http.GetAsync(apiUrl);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("Error al descargar el PDF: " + response.StatusCode);
+                return;
+            }
+
+            // 2. Guardar el PDF en la carpeta caché del dispositivo
+            var pdfStream = await response.Content.ReadAsStreamAsync();
+            var cacheDir = FileSystem.CacheDirectory;
+            var fileName = $"Factura_{codigoFactura}.pdf";
+            var filePath = Path.Combine(cacheDir, fileName);
+
+            using (var fileStream = File.Create(filePath))
+            {
+                await pdfStream.CopyToAsync(fileStream);
+            }
+
+            // 3. Abrir el archivo con la aplicación predeterminada (PDF viewer)
+            await Launcher.Default.OpenAsync(new OpenFileRequest
+                {
+                    File = new ReadOnlyFile(filePath)
+                });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error inesperado: {ex.Message}");
+            await JSV.InvokeVoidAsync("alert", "No se pudo descargar el PDF de la factura");
+        }
     }
+
 
     [Inject] NavigationManager Navigation { get; set; }
     [Inject] IJSRuntime JSV { get; set; }
+
+
+  
+
+
+
+
+
+
+
+
 }
 <style>
     /* Variables y colores */

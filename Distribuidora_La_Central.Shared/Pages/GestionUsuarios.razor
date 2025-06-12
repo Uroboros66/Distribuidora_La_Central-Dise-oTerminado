@@ -11,6 +11,11 @@
         <div class="panel-lista">
             <div class="encabezado-panel">
                 <h4>Lista de Usuarios</h4>
+                <div class="busqueda">
+                    <input type="text" placeholder="Buscar usuarios..." @bind="filtroBusqueda"
+                           @oninput="(e) => { filtroBusqueda = e.Value.ToString();  FiltrarClientes(); }" />
+                    <i class="icono-buscar"></i>
+                </div>
                 <button class="btn-nuevo" @onclick="NuevoUsuario">+ Nuevo</button>
             </div>
 
@@ -25,17 +30,16 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var usuario in usuarios)
+                        @foreach (var usuario in clientesFiltrados)
                         {
-                            <tr class="@(usuario == usuarioSeleccionado ? "seleccionado" : "")"
-                                @onclick="() => SeleccionarUsuario(usuario)">
+                            <tr>
                                 <td>@usuario.idUsuario</td>
                                 <td>@usuario.nombre</td>
                                 <td><span class="badge-rol @usuario.rol.ToLower()">@usuario.rol</span></td>
                                 <button class="btn-editar" @onclick="() => EditarUsuario(usuario)" title="Editar">
                                     <i class="fas fa-edit"></i>
                                 </button>
-                                <button class="btn-eliminar" @onclick="() => EliminarCliente(usuario.idUsuario)" title="Eliminar">
+                                <button class="btn-eliminar" @onclick="() => EliminarUsuario(usuario.idUsuario)" title="Eliminar">
                                     <i class="fas fa-trash-alt"></i>
                                 </button>
                             </tr>
@@ -389,6 +393,25 @@
         width: 120px;
         text-align: center;
     }
+
+    .mensaje-error {
+        color: #E30613;
+        background-color: #ffecec;
+        padding: 10px;
+        border-radius: 4px;
+        margin-top: 10px;
+        font-size: 14px;
+        border: 1px solid #ffc9c9;
+    }
+
+    /* Agrega esto a tus estilos CSS */
+    input:invalid, select:invalid {
+        border-color: #E30613;
+    }
+
+    .grupo-formulario.invalido label {
+        color: #E30613;
+    }
 </style>
 
 @code {
@@ -400,6 +423,8 @@
     protected override async Task OnInitializedAsync()
     {
         await CargarUsuarios();
+
+        clientesFiltrados = usuarios.ToList();
     }
 
     async Task CargarUsuarios()
@@ -427,7 +452,26 @@
         modoEditar = true;
     }
 
-    async Task EliminarCliente(int idUsuario)
+    List<Usuario> clientesFiltrados = new();
+    string filtroBusqueda = "";
+
+    void FiltrarClientes()
+    {
+        if (string.IsNullOrWhiteSpace(filtroBusqueda))
+        {
+            clientesFiltrados = usuarios.ToList();
+        }
+        else
+        {
+            var termino = filtroBusqueda.ToLower();
+            clientesFiltrados = usuarios.Where(c =>
+                c.nombre.ToLower().Contains(termino) ||
+                c.rol.ToLower().Contains(termino)
+            ).ToList();
+        }
+    }
+
+    async Task EliminarUsuario(int idUsuario)
     {
         try
         {
@@ -435,39 +479,106 @@
 
             if (response.IsSuccessStatusCode)
             {
+                // Eliminar el usuario de la lista local primero para respuesta más rápida
+                usuarios.RemoveAll(u => u.idUsuario == idUsuario);
+                clientesFiltrados.RemoveAll(u => u.idUsuario == idUsuario);
+
+                // Forzar actualización de la UI
+                StateHasChanged();
+
+                // Opcional: Recargar desde el servidor para estar seguros
+                await Task.Delay(100); // Pequeño delay para que se vea la actualización
                 await CargarUsuarios();
-                // Mostrar mensaje de éxito
             }
             else
             {
                 var error = await response.Content.ReadAsStringAsync();
-                // Mostrar mensaje de error al usuario
+                Console.WriteLine($"Error al eliminar: {error}");
+                // Aquí podrías mostrar un mensaje de error al usuario
             }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error al eliminar cliente: {ex.Message}");
+            Console.WriteLine($"Error al eliminar usuario: {ex.Message}");
             // Mostrar mensaje de error al usuario
         }
     }
 
+
     async Task Guardar()
     {
-        if (modoEditar)
+
+        // Validar campos requeridos
+        if (string.IsNullOrWhiteSpace(usuarioForm.nombre))
         {
-            await Http.PutAsJsonAsync($"api/Usuario/ActualizarUsuario/{usuarioForm.idUsuario}", usuarioForm);
-        }
-        else
-        {
-            await Http.PostAsJsonAsync("api/Usuario/registrar", usuarioForm);
+            mostrarError = true;
+            mensajeError = "El nombre es requerido";
+            return;
         }
 
-        usuarioForm = new();
-        usuarioSeleccionado = null;
-        await CargarUsuarios();
-        modoEditar = false;
+        if (string.IsNullOrWhiteSpace(usuarioForm.codigoAcceso))
+        {
+            mostrarError = true;
+            mensajeError = "La contraseña es requerida";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(usuarioForm.rol))
+        {
+            mostrarError = true;
+            mensajeError = "Debe seleccionar un rol";
+            return;
+        }
+
+        // Validar longitud mínima de contraseña (opcional)
+        if (usuarioForm.codigoAcceso.Length < 6)
+        {
+            mostrarError = true;
+            mensajeError = "La contraseña debe tener al menos 6 caracteres";
+            return;
+        }
+
+        mostrarError = false;
+
+        try
+        {
+            if (modoEditar)
+            {
+                var response = await Http.PutAsJsonAsync($"api/Usuario/ActualizarUsuario/{usuarioForm.idUsuario}", usuarioForm);
+                if (response.IsSuccessStatusCode)
+                {
+                    await CargarUsuarios();
+                    FiltrarClientes();
+                    Cancelar();
+                }
+            }
+            else
+            {
+                var response = await Http.PostAsJsonAsync("api/Usuario/registrar", usuarioForm);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    // Opción 1: Recargar todos los usuarios desde el servidor (más seguro)
+                    await CargarUsuarios();
+                    FiltrarClientes();
+
+                    // Opción 2: Agregar el nuevo usuario localmente (más rápido)
+                    /*
+                    var nuevoUsuario = await response.Content.ReadFromJsonAsync<Usuario>();
+                    usuarios.Add(nuevoUsuario);
+                    clientesFiltrados = usuarios.ToList();
+                    */
+
+                                            Cancelar();
+                    StateHasChanged();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error al guardar: {ex.Message}");
+        }
     }
-
     async Task Eliminar(int id)
     {
         await Http.DeleteAsync($"api/Usuario/EliminarUsuario/{id}");
@@ -495,7 +606,8 @@
 
     void EditarUsuario(Usuario usuario)
     {
-        nuevoCliente = new Usuario
+        usuarioSeleccionado = usuario;
+        usuarioForm = new Usuario
             {
                 idUsuario = usuario.idUsuario,
                 nombre = usuario.nombre,
@@ -504,4 +616,11 @@
             };
         modoEditar = true;
     }
-}}
+
+
+    // Agrega estas propiedades en la sección @code
+    bool mostrarError = false;
+    string mensajeError = "";
+
+
+}

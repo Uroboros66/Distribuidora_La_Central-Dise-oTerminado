@@ -1,6 +1,9 @@
 @page "/reporte-clientes"
 @inject HttpClient Http
 @using Distribuidora_La_Central.Shared.Models
+@using Microsoft.Maui.Storage
+@using Microsoft.Maui.ApplicationModel
+@using Microsoft.Maui.ApplicationModel.DataTransfer
 
 <div class="report-container">
     <div class="report-header">
@@ -319,8 +322,39 @@
 
     private async Task DescargarPdf()
     {
-        var url = Navigation.ToAbsoluteUri("/api/Cliente/DescargarReporteClientes").ToString();
-        await JS.InvokeVoidAsync("open", url, "_blank");
+        try
+        {
+            // 1. Descargar el PDF desde la API
+            var response = await Http.GetAsync("api/Cliente/DescargarReporteClientes");
+
+            if (!response.IsSuccessStatusCode)
+            {
+                Console.WriteLine("Error al descargar el PDF: " + response.StatusCode);
+                return;
+            }
+
+            // 2. Guardar el PDF en la carpeta caché del dispositivo
+            var pdfStream = await response.Content.ReadAsStreamAsync();
+            var cacheDir = FileSystem.CacheDirectory; // Usa el directorio temporal
+            var filePath = Path.Combine(cacheDir, "Reporte_Clientes.pdf");
+
+            using (var fileStream = File.Create(filePath))
+            {
+                await pdfStream.CopyToAsync(fileStream);
+            }
+
+            // 3. Abrir el archivo con la aplicación predeterminada
+            await Launcher.Default.OpenAsync(new OpenFileRequest
+                {
+                    File = new ReadOnlyFile(filePath)
+                });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error inesperado: {ex.Message}");
+            // Opcional: Mostrar alerta al usuario (requiere IJSRuntime en Blazor)
+            await JS.InvokeVoidAsync("alert", "No se pudo descargar el PDF");
+        }
     }
 
     [Inject] NavigationManager Navigation { get; set; }

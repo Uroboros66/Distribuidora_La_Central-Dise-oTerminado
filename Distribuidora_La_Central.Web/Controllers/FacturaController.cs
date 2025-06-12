@@ -499,6 +499,96 @@ namespace Distribuidora_La_Central.Web.Controllers
         }
 
 
+        [HttpGet]
+        [Route("DescargarReporteFactura/{codigoFactura?}")] // El parámetro es opcional y debe ser int
+        public IActionResult DescargarReporteFactura(int? codigoFactura = null)
+        {
+            using (SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                string query = @"SELECT 
+                f.codigoFactura,
+                f.estado,
+                f.totalFactura,
+                f.fecha,
+                c.nombre + ' ' + c.apellido AS nombreCliente,
+                f.saldo,
+                f.tipo
+            FROM Factura f
+            INNER JOIN Cliente c ON f.codigoCliente = c.codigoCliente
+            WHERE (@codigoFactura IS NULL OR f.codigoFactura = @codigoFactura)
+            AND (@codigoFactura IS NOT NULL OR f.estado = 'Pendiente')";
+
+                SqlCommand cmd = new SqlCommand(query, con);
+                cmd.Parameters.AddWithValue("@codigoFactura", codigoFactura ?? (object)DBNull.Value);
+
+                SqlDataAdapter da = new SqlDataAdapter(cmd);
+                DataTable dt = new DataTable();
+                da.Fill(dt);
+
+                if (dt.Rows.Count == 0)
+                {
+                    return NotFound(codigoFactura.HasValue ?
+                        $"No se encontró la factura con código {codigoFactura}" :
+                        "No hay facturas pendientes");
+                }
+
+                using (var stream = new MemoryStream())
+                {
+                    var document = new Document(PageSize.A4.Rotate());
+                    PdfWriter.GetInstance(document, stream).CloseStream = false;
+                    document.Open();
+
+                    var fontTitle = FontFactory.GetFont("Arial", 18, Font.BOLD);
+                    var fontHeader = FontFactory.GetFont("Arial", 10, Font.BOLD, BaseColor.WHITE);
+                    var fontCell = FontFactory.GetFont("Arial", 9);
+
+                    string titulo = codigoFactura.HasValue ?
+                        $"Detalle de Factura #{codigoFactura}" :
+                        "Reporte de Facturas Pendientes";
+
+                    document.Add(new Paragraph(titulo, fontTitle));
+                    document.Add(Chunk.NEWLINE);
+
+                    PdfPTable table = new PdfPTable(7);
+                    table.WidthPercentage = 100;
+                    float[] columnWidths = new float[] { 1.5f, 2f, 1.5f, 1.5f, 1.5f, 1.5f, 1.5f };
+                    table.SetWidths(columnWidths);
+
+                    AddHeaderCell(table, "N° Factura", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Cliente", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Fecha", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Total", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Saldo", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Tipo", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Estado", fontHeader, BaseColor.DARK_GRAY);
+
+                    foreach (DataRow row in dt.Rows)
+                    {
+                        table.AddCell(new Phrase(row["codigoFactura"].ToString(), fontCell));
+                        table.AddCell(new Phrase(row["nombreCliente"]?.ToString() ?? "-", fontCell));
+                        table.AddCell(new Phrase(Convert.ToDateTime(row["fecha"]).ToString("dd/MM/yyyy"), fontCell));
+                        table.AddCell(new Phrase(Convert.ToDecimal(row["totalFactura"]).ToString("C2"), fontCell));
+                        table.AddCell(new Phrase(Convert.ToDecimal(row["saldo"]).ToString("C2"), fontCell));
+                        table.AddCell(new Phrase(row["tipo"]?.ToString() ?? "-", fontCell));
+                        table.AddCell(new Phrase(row["estado"]?.ToString() ?? "-", fontCell));
+                    }
+
+                    document.Add(table);
+                    document.Close();
+
+                    stream.Position = 0;
+
+                    string fileName = codigoFactura.HasValue ?
+                        $"Factura_{codigoFactura}.pdf" :
+                        "Reporte_Facturas_Pendientes.pdf";
+
+                    return File(stream.ToArray(), "application/pdf", fileName);
+                }
+            }
+        }
+
+
+
 
     }
 }

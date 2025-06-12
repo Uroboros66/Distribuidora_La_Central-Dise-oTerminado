@@ -26,7 +26,7 @@
                     </div>
 
                     <div class="grupo-formulario">
-                        <label>Persona de Contacto:</label>
+                        <label>Contacto:</label>
                         <input type="text" @bind="nuevoProveedor.contacto" placeholder="Nombre del contacto" />
                     </div>
 
@@ -64,6 +64,7 @@
                            @oninput="(e) => { filtroBusqueda = e.Value.ToString(); FiltrarProveedores(); }" />
                     <i class="icono-buscar"></i>
                 </div>
+                <button class="btn-nuevo" @onclick="NuevoCliente">+ Nuevo</button>
             </div>
 
             <div class="contenedor-tabla">
@@ -459,6 +460,36 @@
     .icono-cancelar {
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z'/%3E%3C/svg%3E");
     }
+
+
+    .btn-nuevo {
+        background-color: #E30613;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+        .btn-nuevo:hover {
+            background-color: #c00510;
+        }
+
+    .btn-guardar {
+        background-color: #1A2E5A;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
 </style>
 
 @code {
@@ -509,8 +540,56 @@
         }
     }
 
+    void NuevoCliente()
+    {
+        nuevoProveedor = new Proveedor(); // Limpia el formulario
+        modoEditar = false;           // Establece el modo de creación (no edición)
+
+        // Si tienes un usuario por defecto para "creado_por", puedes asignarlo aquí
+        // nuevoCliente.creado_por = usuarioActual.idUsuario;
+
+        // También puedes hacer scroll automático al formulario si es necesario
+        // await JSRuntime.InvokeVoidAsync("scrollToForm");
+    }
+    Dictionary<string, string> erroresValidacion = new();
+
     async Task GuardarProveedor()
     {
+
+
+        erroresValidacion.Clear();
+
+        // Validar campos
+        if (string.IsNullOrWhiteSpace(nuevoProveedor.nombre))
+            erroresValidacion["nombre"] = "El nombre es requerido";
+        else if (nuevoProveedor.nombre.Length > 100)
+            erroresValidacion["nombre"] = "El nombre no puede exceder 100 caracteres";
+
+        if (string.IsNullOrWhiteSpace(nuevoProveedor.razonSocial))
+            erroresValidacion["razonSocial"] = "La razón social es requerida";
+        else if (nuevoProveedor.razonSocial.Length > 150)
+            erroresValidacion["razonSocial"] = "La razón social no puede exceder 150 caracteres";
+
+        if (string.IsNullOrWhiteSpace(nuevoProveedor.contacto))
+            erroresValidacion["contacto"] = "El contacto es requerido";
+        else if (nuevoProveedor.contacto.Length > 100)
+            erroresValidacion["contacto"] = "El contacto no puede exceder 100 caracteres";
+
+        if (string.IsNullOrWhiteSpace(nuevoProveedor.telefono))
+            erroresValidacion["telefono"] = "El teléfono es requerido";
+        else if (!System.Text.RegularExpressions.Regex.IsMatch(nuevoProveedor.telefono, @"^[0-9\s\-\+\(\)]{8,20}$"))
+            erroresValidacion["telefono"] = "Formato de teléfono inválido";
+
+        // Validar fecha (no puede ser en el futuro)
+        if (nuevoProveedor.diaIngreso > DateTime.Now)
+            erroresValidacion["diaIngreso"] = "La fecha no puede ser futura";
+
+        // Si hay errores, no proceder con el guardado
+        if (erroresValidacion.Any())
+        {
+            StateHasChanged(); // Forzar actualización de la UI
+            return;
+        }
         try
         {
             if (modoEditar)

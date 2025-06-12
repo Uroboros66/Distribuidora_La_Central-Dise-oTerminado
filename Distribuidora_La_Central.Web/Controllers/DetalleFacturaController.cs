@@ -37,7 +37,8 @@ public class DetalleFacturaController : ControllerBase
                 codigoProducto = Convert.ToInt32(row["codigoProducto"]),
                 cantidad = Convert.ToInt32(row["cantidad"]),
                 precioUnitario = Convert.ToDecimal(row["precioUnitario"]),
-                subtotal = Convert.ToDecimal(row["subtotal"])
+                subtotal = Convert.ToDecimal(row["subtotal"]),
+                unidadMedida = row["unidadMedida"]?.ToString() // Nueva propiedad
             };
             lista.Add(detalle);
         }
@@ -55,16 +56,21 @@ public class DetalleFacturaController : ControllerBase
     [HttpPost("registrar")]
     public IActionResult Registrar([FromBody] DetalleFactura detalle)
     {
+
+        // Agrega logging temporal
+        Console.WriteLine($"Recibido detalle - UnidadMedida: {detalle.unidadMedida}");
+
         using SqlConnection con = new(_configuration.GetConnectionString("DefaultConnection"));
 
-        SqlCommand cmd = new("INSERT INTO DetalleFactura (codigoFactura, codigoProducto, cantidad, precioUnitario, subtotal) " +
-                             "VALUES (@codigoFactura, @codigoProducto, @cantidad, @precioUnitario, @subtotal)", con);
+        SqlCommand cmd = new("INSERT INTO DetalleFactura (codigoFactura, codigoProducto, cantidad, precioUnitario, subtotal, unidadMedida) " +
+                             "VALUES (@codigoFactura, @codigoProducto, @cantidad, @precioUnitario, @subtotal, @unidadMedida)", con);
 
         cmd.Parameters.AddWithValue("@codigoFactura", detalle.codigoFactura);
         cmd.Parameters.AddWithValue("@codigoProducto", detalle.codigoProducto);
         cmd.Parameters.AddWithValue("@cantidad", detalle.cantidad);
         cmd.Parameters.AddWithValue("@precioUnitario", detalle.precioUnitario);
         cmd.Parameters.AddWithValue("@subtotal", detalle.subtotal);
+        cmd.Parameters.AddWithValue("@unidadMedida", detalle.unidadMedida ?? (object)DBNull.Value);
 
         con.Open();
         int result = cmd.ExecuteNonQuery();
@@ -86,7 +92,8 @@ public class DetalleFacturaController : ControllerBase
                                 codigoProducto = @codigoProducto,
                                 cantidad = @cantidad,
                                 precioUnitario = @precioUnitario,
-                                subtotal = @subtotal
+                                subtotal = @subtotal,
+                                unidadMedida = @unidadMedida
                                 WHERE idDetalle = @idDetalle", con);
 
         cmd.Parameters.AddWithValue("@idDetalle", id);
@@ -95,6 +102,7 @@ public class DetalleFacturaController : ControllerBase
         cmd.Parameters.AddWithValue("@cantidad", detalle.cantidad);
         cmd.Parameters.AddWithValue("@precioUnitario", detalle.precioUnitario);
         cmd.Parameters.AddWithValue("@subtotal", detalle.subtotal);
+        cmd.Parameters.AddWithValue("@unidadMedida", detalle.unidadMedida ?? (object)DBNull.Value);
 
         con.Open();
         int result = cmd.ExecuteNonQuery();

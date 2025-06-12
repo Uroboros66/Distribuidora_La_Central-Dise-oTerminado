@@ -5,7 +5,7 @@
 @using System.Text.Json
 
 <style>
-    /* [Mantener todos los estilos igual] */
+  
     :root {
         --primary-blue: #1a4b8c;
         --secondary-blue: #2a6fd6;
@@ -400,34 +400,78 @@
             await JS.InvokeVoidAsync("alert", $"Error cargando traslados: {ex.Message}");
         }
     }
+    public class ErrorResponse
+    {
+        public string Message { get; set; }
+        public Dictionary<string, string[]> Errors { get; set; }
+    }
 
     private async Task RegistrarTraslado()
     {
         try
         {
+            // Validaciones adicionales antes de enviar
+            if (nuevoTraslado.idBodegaOrigen == nuevoTraslado.idBodegaDestino)
+            {
+                await JS.InvokeVoidAsync("alert", "La bodega origen y destino deben ser diferentes");
+                return;
+            }
+
+            if (nuevoTraslado.cantidad <= 0)
+            {
+                await JS.InvokeVoidAsync("alert", "La cantidad debe ser mayor que cero");
+                return;
+            }
+
+            // Verificar stock disponible (necesitarías un método API para esto)
+            var stockResponse = await Http.GetFromJsonAsync<int>($"api/Inventario/StockDisponible?productoId={nuevoTraslado.codigoProducto}&bodegaId={nuevoTraslado.idBodegaOrigen}");
+
+            if (stockResponse < nuevoTraslado.cantidad)
+            {
+                await JS.InvokeVoidAsync("alert", $"No hay suficiente stock en la bodega origen. Stock disponible: {stockResponse}");
+                return;
+            }
+
             var response = await Http.PostAsJsonAsync("api/Traslado/PostTraslado", nuevoTraslado);
 
             if (response.IsSuccessStatusCode)
             {
-                await JS.InvokeVoidAsync("alert", "Traslado registrado correctamente");
+                await JS.InvokeVoidAsync("Swal.fire",
+                    "Éxito",
+                    "Traslado registrado correctamente",
+                    "success");
+
+                // Resetear formulario
                 nuevoTraslado = new TrasladoModel
                     {
                         fechaTraslado = DateTime.Now,
                         estado = "Pendiente"
                     };
+
                 await CargarTraslados();
             }
             else
             {
                 var errorContent = await response.Content.ReadAsStringAsync();
-                await JS.InvokeVoidAsync("alert", $"Error: {response.StatusCode} - {errorContent}");
+                var errorDetails = JsonSerializer.Deserialize<ErrorResponse>(errorContent);
+
+                await JS.InvokeVoidAsync("Swal.fire",
+                    "Error",
+                    errorDetails?.Message ?? "Error al registrar el traslado",
+                    "error");
             }
         }
         catch (Exception ex)
         {
-            await JS.InvokeVoidAsync("alert", $"Error registrando traslado: {ex.Message}");
+            await JS.InvokeVoidAsync("Swal.fire",
+                "Error",
+                $"Error registrando traslado: {ex.Message}",
+                "error");
         }
     }
+
+    // Clase para manejar respuestas de error
+   
 
     public class Usuario
     {

@@ -494,74 +494,88 @@ namespace Distribuidora_La_Central.Web.Controllers
         }
 
         [HttpGet]
-        [Route("DescargarReporteDeudasPendientes")]
-        public IActionResult DescargarReporteDeudasPendientes()
+[Route("DescargarReporteCompra/{idCompra?}")] // El parámetro es opcional
+public IActionResult DescargarReporteCompra(int? idCompra = null)
+{
+    using (SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+    {
+        string query = @"SELECT 
+                c.idCompra,
+                c.Estado,
+                c.TotalCompra,
+                c.fechaCompra,
+                p.nombre AS nombreProveedor
+            FROM Compra c
+            INNER JOIN Proveedor p ON c.idProveedor = p.idProveedor
+            WHERE (@idCompra IS NULL OR c.idCompra = @idCompra)
+            AND (@idCompra IS NOT NULL OR c.Estado = 'Pendiente')";
+
+        SqlCommand cmd = new SqlCommand(query, con);
+        cmd.Parameters.AddWithValue("@idCompra", idCompra ?? (object)DBNull.Value);
+        
+        SqlDataAdapter da = new SqlDataAdapter(cmd);
+        DataTable dt = new DataTable();
+        da.Fill(dt);
+
+        if (dt.Rows.Count == 0)
         {
-            using (SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
-            {
-                // Consulta simplificada con solo los campos necesarios
-                string query = @"SELECT 
-                        c.idCompra,
-                        c.Estado,
-                        c.TotalCompra,
-                        c.fechaCompra,
-                        p.nombre AS nombreProveedor
-                    FROM Compra c
-                    INNER JOIN Proveedor p ON c.idProveedor = p.idProveedor
-                    WHERE c.Estado = 'Pendiente'";
-
-                SqlDataAdapter da = new SqlDataAdapter(query, con);
-                DataTable dt = new DataTable();
-                da.Fill(dt);
-
-                using (var stream = new MemoryStream())
-                {
-                    var document = new Document(PageSize.A4.Rotate()); // Horizontal
-                    PdfWriter.GetInstance(document, stream).CloseStream = false;
-                    document.Open();
-
-                    // Fuentes
-                    var fontTitle = FontFactory.GetFont("Arial", 18, Font.BOLD);
-                    var fontHeader = FontFactory.GetFont("Arial", 10, Font.BOLD, BaseColor.WHITE);
-                    var fontCell = FontFactory.GetFont("Arial", 9);
-
-                    // Título
-                    document.Add(new Paragraph("Reporte de Deudas Pendientes", fontTitle));
-                    document.Add(Chunk.NEWLINE);
-
-                    // Tabla con 5 columnas (reducidas)
-                    PdfPTable table = new PdfPTable(5);
-                    table.WidthPercentage = 100;
-
-                    // Anchos de columnas optimizados
-                    float[] columnWidths = new float[] { 1f, 2f, 1.5f, 1.5f, 1.5f };
-                    table.SetWidths(columnWidths);
-
-                    // Encabezados simplificados
-                    AddHeaderCell(table, "ID Compra", fontHeader, BaseColor.DARK_GRAY);
-                    AddHeaderCell(table, "Proveedor", fontHeader, BaseColor.DARK_GRAY);
-                    AddHeaderCell(table, "Fecha Compra", fontHeader, BaseColor.DARK_GRAY);
-                    AddHeaderCell(table, "Total", fontHeader, BaseColor.DARK_GRAY);
-                    AddHeaderCell(table, "Estado", fontHeader, BaseColor.DARK_GRAY);
-
-                    // Datos
-                    foreach (DataRow row in dt.Rows)
-                    {
-                        table.AddCell(new Phrase(row["idCompra"].ToString(), fontCell));
-                        table.AddCell(new Phrase(row["nombreProveedor"]?.ToString() ?? "-", fontCell));
-                        table.AddCell(new Phrase(Convert.ToDateTime(row["fechaCompra"]).ToString("dd/MM/yyyy"), fontCell));
-                        table.AddCell(new Phrase(Convert.ToDecimal(row["TotalCompra"]).ToString("C2"), fontCell));
-                        table.AddCell(new Phrase(row["Estado"]?.ToString() ?? "-", fontCell));
-                    }
-
-                    document.Add(table);
-                    document.Close();
-
-                    stream.Position = 0;
-                    return File(stream.ToArray(), "application/pdf", "Reporte_Deudas_Pendientes.pdf");
-                }
-            }
+            return NotFound(idCompra.HasValue ? 
+                $"No se encontró la compra con ID {idCompra}" : 
+                "No hay deudas pendientes");
         }
+
+        using (var stream = new MemoryStream())
+        {
+            var document = new Document(PageSize.A4.Rotate());
+            PdfWriter.GetInstance(document, stream).CloseStream = false;
+            document.Open();
+
+            var fontTitle = FontFactory.GetFont("Arial", 18, Font.BOLD);
+            var fontHeader = FontFactory.GetFont("Arial", 10, Font.BOLD, BaseColor.WHITE);
+            var fontCell = FontFactory.GetFont("Arial", 9);
+
+            // Título dinámico
+            string titulo = idCompra.HasValue ? 
+                $"Detalle de Compra #{idCompra}" : 
+                "Reporte de Deudas Pendientes";
+            
+            document.Add(new Paragraph(titulo, fontTitle));
+            document.Add(Chunk.NEWLINE);
+
+            PdfPTable table = new PdfPTable(5);
+            table.WidthPercentage = 100;
+            float[] columnWidths = new float[] { 1f, 2f, 1.5f, 1.5f, 1.5f };
+            table.SetWidths(columnWidths);
+
+            AddHeaderCell(table, "ID Compra", fontHeader, BaseColor.DARK_GRAY);
+            AddHeaderCell(table, "Proveedor", fontHeader, BaseColor.DARK_GRAY);
+            AddHeaderCell(table, "Fecha Compra", fontHeader, BaseColor.DARK_GRAY);
+            AddHeaderCell(table, "Total", fontHeader, BaseColor.DARK_GRAY);
+            AddHeaderCell(table, "Estado", fontHeader, BaseColor.DARK_GRAY);
+
+            foreach (DataRow row in dt.Rows)
+            {
+                table.AddCell(new Phrase(row["idCompra"].ToString(), fontCell));
+                table.AddCell(new Phrase(row["nombreProveedor"]?.ToString() ?? "-", fontCell));
+                table.AddCell(new Phrase(Convert.ToDateTime(row["fechaCompra"]).ToString("dd/MM/yyyy"), fontCell));
+                table.AddCell(new Phrase(Convert.ToDecimal(row["TotalCompra"]).ToString("C2"), fontCell));
+                table.AddCell(new Phrase(row["Estado"]?.ToString() ?? "-", fontCell));
+            }
+
+            document.Add(table);
+            document.Close();
+
+            stream.Position = 0;
+            
+            string fileName = idCompra.HasValue ? 
+                $"Compra_{idCompra}.pdf" : 
+                "Reporte_Deudas_Pendientes.pdf";
+                
+            return File(stream.ToArray(), "application/pdf", fileName);
+        }
+    }
+}
+
 
 
 

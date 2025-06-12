@@ -9,7 +9,6 @@
         public decimal precioUnitario { get; set; }
         public decimal subtotal { get; set; }
 
-        // NUEVO: descripción del producto
-        public string descripcion { get; set; }
+        public string unidadMedida { get; set; }
     }
 }

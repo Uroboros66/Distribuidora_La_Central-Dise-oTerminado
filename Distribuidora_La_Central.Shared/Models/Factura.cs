@@ -11,7 +11,10 @@
         public string tipo { get; set; }
         public string estado { get; set; }
 
+        public Cliente Cliente { get; set; }
 
+        // O si prefieres no tener el objeto completo, solo el nombre:
+        public string ClienteNombre { get; set; }
     }
 
 
