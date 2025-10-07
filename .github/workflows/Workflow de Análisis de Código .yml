@@ -1,0 +1,59 @@
+name: Code Analysis
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  codeql-analysis:
+    name: CodeQL Security Scan
+    runs-on: windows-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript  # cambia según tu lenguaje (python, csharp, etc.)
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript"
+
+  semgrep:
+    name: Semgrep Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep scan
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: "p/security-audit"  # reglas de seguridad
+          audit_on: "push"
+          generateSarif: "true"
+          output: "semgrep-results.sarif"
+
+      - name: Upload Semgrep results
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-report
+          path: semgrep-results.sarif
+
+      - name: Falla si hay vulnerabilidades críticas
+        run: |
+          if grep -q "CRITICAL" semgrep-results.sarif; then
+            echo "❌ Vulnerabilidades críticas encontradas"
+            exit 1
+          fi
