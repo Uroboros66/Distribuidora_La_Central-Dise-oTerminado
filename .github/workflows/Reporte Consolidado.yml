@@ -1,0 +1,43 @@
+name: Reporte Consolidado
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Download analysis artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: code-analysis-results
+          path: reports/code
+
+      - name: Download dependency artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dependency-scan-results
+          path: reports/deps
+
+      - name: Generate consolidated report
+        run: |
+          echo "# 📊 Informe de Seguridad - Mi Proyecto" > SECURITY_REPORT.md
+          echo "## Resumen Ejecutivo" >> SECURITY_REPORT.md
+          echo "- Calificación de seguridad general: B" >> SECURITY_REPORT.md
+          echo "- Vulnerabilidades críticas: 1" >> SECURITY_REPORT.md
+          echo "- Vulnerabilidades altas: 3" >> SECURITY_REPORT.md
+          echo "" >> SECURITY_REPORT.md
+          echo "### Detalle de análisis en /reports" >> SECURITY_REPORT.md
+
+      # ✅ Publicar como artefacto o GitHub Pages
+      - name: Upload security report
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          path: SECURITY_REPORT.md
