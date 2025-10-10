@@ -2,22 +2,42 @@ name: Análisis de Código
 
 on:
   push:
+    branches:
+      - main
+      - master
   pull_request:
 
 jobs:
-  analyze:
+  sast:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        language: [csharp, javascript]
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ✅ CodeQL (SAST nativo de GitHub)
+      - name: Setup .NET
+        if: matrix.language == 'csharp'
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '7.0.x'  # ajusta versión
+
+      - name: Install Node.js (para JS/TS)
+        if: matrix.language == 'javascript'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      # Inicializar CodeQL
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
-          languages: python, javascript
+          # incluye los lenguajes que tienes
+          languages: csharp, javascript
 
-      - name: Autobuild
+      - name: Autobuild / build for CodeQL
         uses: github/codeql-action/autobuild@v3
 
       - name: Perform CodeQL Analysis
@@ -25,16 +45,30 @@ jobs:
         with:
           category: "security"
 
-      # ✅ Segunda herramienta (Semgrep)
-      - name: Run Semgrep Scan
-        uses: returntocorp/semgrep-action@v1
+      # Segunda herramienta: SonarScanner (o ESLint si tienes JS)
+      - name: Run SonarScanner
+        uses: sonarsource/sonarcloud-github-action@master
         with:
-          config: "p/ci"
-          auditOn: push
+          args: >
+            -Dsonar.projectKey=DistribuidoraLaCentral
+            -Dsonar.organization=tu-org
+            -Dsonar.host.url=https://sonarcloud.io
+            -Dsonar.login=$\{ { secrets.SONAR_TOKEN } \}
 
-      # 📦 Guardar resultados como artefacto
-      - name: Upload analysis results
+      # Opcional: si tienes código JS/TS
+      - name: Run ESLint
+        if: matrix.language == 'javascript'
+        run: |
+          npm ci
+          npm run lint -- --format=json -o eslint-report.json
+
+      # Cargar artefactos
+      - name: Upload SAST results
         uses: actions/upload-artifact@v4
         with:
-          name: code-analysis-results
-          path: semgrep-results.sarif
+          name: code-analysis-artifacts
+          path: |
+            eslint-report.json
+            ./**/sonar-report-task.txt
+            # Si CodeQL genera SARIF
+            results.sarif
