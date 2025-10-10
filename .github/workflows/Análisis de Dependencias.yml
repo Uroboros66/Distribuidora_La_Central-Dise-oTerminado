@@ -2,26 +2,38 @@ name: Análisis de Dependencias
 
 on:
   schedule:
-    - cron: "0 0 * * 1"  # Cada lunes
+    - cron: "0 0 * * 1"  # cada lunes a medianoche
   workflow_dispatch:
 
 jobs:
-  dependency-check:
+  scan:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ✅ Escaneo con OWASP Dependency-Check
-      - name: Run OWASP Dependency-Check
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '7.0.x'
+
+      - name: Install OWASP Dependency-Check
         uses: dependency-check/Dependency-Check_Action@v3.1.2
         with:
-          project: "MyProject"
-          format: "HTML"
-          out: "reports"
+          project: "DistribuidoraLaCentral"
+          format: "ALL"
+          out: "dependency-reports"
 
-      - name: Upload dependency report
+      - name: Run .NET vulnerable scan
+        run: |
+          dotnet tool install --global dotnet-outdated-tool
+          dotnet outdated --include-auto-updates --no-restore --output json > outdated-packages.json
+
+      - name: Upload Dependency Reports
         uses: actions/upload-artifact@v4
         with:
-          name: dependency-scan-results
-          path: reports/
+          name: dependency-scan-artifacts
+          path: |
+            dependency-reports/
+            outdated-packages.json
