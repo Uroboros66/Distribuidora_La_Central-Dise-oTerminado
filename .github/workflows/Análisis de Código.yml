@@ -1,0 +1,40 @@
+name: Análisis de Código
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ✅ CodeQL (SAST nativo de GitHub)
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python, javascript
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "security"
+
+      # ✅ Segunda herramienta (Semgrep)
+      - name: Run Semgrep Scan
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: "p/ci"
+          auditOn: push
+
+      # 📦 Guardar resultados como artefacto
+      - name: Upload analysis results
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-analysis-results
+          path: semgrep-results.sarif
