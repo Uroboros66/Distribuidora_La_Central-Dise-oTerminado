@@ -1,0 +1,27 @@
+name: Análisis de Dependencias
+
+on:
+  schedule:
+    - cron: "0 0 * * 1"  # Cada lunes
+  workflow_dispatch:
+
+jobs:
+  dependency-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ✅ Escaneo con OWASP Dependency-Check
+      - name: Run OWASP Dependency-Check
+        uses: dependency-check/Dependency-Check_Action@v3.1.2
+        with:
+          project: "MyProject"
+          format: "HTML"
+          out: "reports"
+
+      - name: Upload dependency report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-scan-results
+          path: reports/
