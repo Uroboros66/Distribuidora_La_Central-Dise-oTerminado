@@ -26,7 +26,6 @@
 
 
 
-
     private async Task DescargarPdf()
     {
         try
@@ -340,6 +339,35 @@
         }
     }
 
+
+
+    private async Task EliminarCompra(int idCompra)
+    {
+        // Confirmación antes de eliminar
+        bool confirmar = await JSV.InvokeAsync<bool>("confirm", "¿Está seguro de eliminar esta compra?");
+        if (!confirmar) return;
+
+        try
+        {
+            var response = await Http.DeleteAsync($"api/Compra/EliminarCompra/{idCompra}");
+
+            if (response.IsSuccessStatusCode)
+            {
+                mensaje = "✅ Compra eliminada correctamente";
+                await CargarDatosIniciales(); // Recargar datos
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                mensaje = $"Error al eliminar: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            mensaje = $"Error inesperado: {ex.Message}";
+        }
+    }
+
     private void CerrarDetalleModal()
     {
         showDetalleModal = false;
@@ -360,7 +388,7 @@
         public DateTime fechaCompra { get; set; } = DateTime.Now;
         public decimal TotalCompra { get; set; }
         public string Estado { get; set; } = "Pendiente";
-      
+
         public DateTime? FechaPago { get; set; }
         public string? MetodoPago { get; set; }
     }
@@ -677,7 +705,12 @@
                                                     <button class="btn btn-complete" @onclick="() => MarcarComoPagada(compra.idCompra)" title="Marcar como pagada">
                                                         ✅
                                                     </button>
+                                                    <!-- Eliminar -->
+                                                    <button class="btn btn-delete" @onclick="() => EliminarCompra(compra.idCompra)" title="Eliminar">
+                                                        🗑
+                                                    </button>
                                                 }
+
 
 
                                             </td>
@@ -970,20 +1003,17 @@
         }
 
     @@media (max-width: 768px) {
-        .modal-container
+        .modal-container {
+            width: 95%;
+        }
 
-    {
-        width: 95%;
-    }
+        .compra-info-grid {
+            grid-template-columns: 1fr;
+        }
 
-    .compra-info-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .modal-actions {
-        flex-direction: column;
-    }
-
+        .modal-actions {
+            flex-direction: column;
+        }
     }
     /* Variables de color */
     :root {
@@ -1805,29 +1835,26 @@
     }
 
     @@media (max-width: 600px) {
-        .modal-wrapper
-
-    {
-        max-width: 95%;
-    }
-
-    .products-table {
-        font-size: 0.9rem;
-    }
-
-        .products-table th,
-        .products-table td {
-            padding: 8px 5px;
+        .modal-wrapper {
+            max-width: 95%;
         }
 
-    .modal-actions {
-        flex-direction: column;
-    }
+        .products-table {
+            font-size: 0.9rem;
+        }
 
-    .btn {
-        justify-content: center;
-    }
+            .products-table th,
+            .products-table td {
+                padding: 8px 5px;
+            }
 
+        .modal-actions {
+            flex-direction: column;
+        }
+
+        .btn {
+            justify-content: center;
+        }
     }
 
 
@@ -1971,65 +1998,53 @@
     }
 
     @@keyframes ripple {
-        0%
+        0% {
+            transform: scale(0, 0);
+            opacity: 0.5;
+        }
 
-    {
-        transform: scale(0, 0);
-        opacity: 0.5;
-    }
-
-    100% {
-        transform: scale(20, 20);
-        opacity: 0;
-    }
-
+        100% {
+            transform: scale(20, 20);
+            opacity: 0;
+        }
     }
 
     /* Responsive */
     @@media (max-width: 992px) {
-        .resumen-compras
+        .resumen-compras {
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        }
 
-    {
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    }
-
-    .metric-value {
-        font-size: 1.6rem;
-    }
-
+        .metric-value {
+            font-size: 1.6rem;
+        }
     }
 
     @@media (max-width: 768px) {
-        .resumen-compras
+        .resumen-compras {
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
 
-    {
-        grid-template-columns: 1fr 1fr;
-        gap: 1rem;
-    }
+        .metric-card {
+            padding: 1.2rem;
+        }
 
-    .metric-card {
-        padding: 1.2rem;
-    }
-
-    .metric-icon-container {
-        width: 50px;
-        height: 50px;
-        font-size: 1.3rem;
-    }
-
+        .metric-icon-container {
+            width: 50px;
+            height: 50px;
+            font-size: 1.3rem;
+        }
     }
 
     @@media (max-width: 480px) {
-        .resumen-compras
+        .resumen-compras {
+            grid-template-columns: 1fr;
+        }
 
-    {
-        grid-template-columns: 1fr;
-    }
-
-    .metric-value {
-        font-size: 1.8rem;
-    }
-
+        .metric-value {
+            font-size: 1.8rem;
+        }
     }
 </style>
 

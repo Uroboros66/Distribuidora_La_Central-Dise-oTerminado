@@ -1786,8 +1786,16 @@
         var confirm = await JS.InvokeAsync<bool>("confirm", $"¿Estás seguro de eliminar la factura #{codigo}?");
         if (confirm)
         {
-            await Http.DeleteAsync($"api/Factura/eliminar-factura/{codigo}");
-            await CargarFacturas();
+            var response = await Http.DeleteAsync($"api/Factura/EliminarFactura/{codigo}");
+            if (response.IsSuccessStatusCode)
+            {
+                await CargarFacturas();
+            }
+            else
+            {
+                var errorResponse = await response.Content.ReadFromJsonAsync<dynamic>();
+                // Mostrar mensaje de error al usuario
+            }
         }
     }
 

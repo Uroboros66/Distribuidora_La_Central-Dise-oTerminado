@@ -303,13 +303,102 @@ namespace Distribuidora_La_Central.Web.Controllers
         public IActionResult EliminarFactura(int id)
         {
             using SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            string query = "DELETE FROM Factura WHERE codigoFactura = @id";
-            using SqlCommand cmd = new SqlCommand(query, con);
-            cmd.Parameters.AddWithValue("@id", id);
             con.Open();
-            int rows = cmd.ExecuteNonQuery();
-            return Ok(rows > 0);
+            using SqlTransaction transaction = con.BeginTransaction();
+
+            try
+            {
+                // 1. Obtener los detalles de la factura para devolver los productos al inventario
+                List<DetalleFactura> detalles = ObtenerDetallesFactura(con, transaction, id);
+
+                // 2. Devolver los productos al inventario
+                foreach (var detalle in detalles)
+                {
+                    DevolverProductoAlInventario(con, transaction, detalle.codigoProducto, detalle.cantidad);
+                }
+
+                // 3. Eliminar los detalles de la factura
+                EliminarDetallesFactura(con, transaction, id);
+
+                // 4. Si es crédito, eliminar el registro de crédito asociado
+                EliminarCreditoAsociado(con, transaction, id);
+
+                // 5. Finalmente, eliminar la factura
+                int filasAfectadas = EliminarFacturaPrincipal(con, transaction, id);
+
+                if (filasAfectadas > 0)
+                {
+                    transaction.Commit();
+                    return Ok(new { success = true, message = "Factura eliminada correctamente" });
+                }
+                else
+                {
+                    transaction.Rollback();
+                    return NotFound(new { success = false, message = "Factura no encontrada" });
+                }
+            }
+            catch (Exception ex)
+            {
+                transaction.Rollback();
+                return StatusCode(500, new { success = false, message = "Error al eliminar la factura", error = ex.Message });
+            }
         }
+
+        #region Métodos auxiliares para EliminarFactura
+
+        private List<DetalleFactura> ObtenerDetallesFactura(SqlConnection con, SqlTransaction transaction, int idFactura)
+        {
+            string query = "SELECT codigoProducto, cantidad FROM DetalleFactura WHERE codigoFactura = @idFactura";
+            using SqlCommand cmd = new SqlCommand(query, con, transaction);
+            cmd.Parameters.AddWithValue("@idFactura", idFactura);
+
+            var detalles = new List<DetalleFactura>();
+            using SqlDataReader reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                detalles.Add(new DetalleFactura
+                {
+                    codigoProducto = reader.GetInt32(0),
+                    cantidad = reader.GetInt32(1)
+                });
+            }
+            return detalles;
+        }
+
+        private void DevolverProductoAlInventario(SqlConnection con, SqlTransaction transaction, int codigoProducto, int cantidad)
+        {
+            string query = "UPDATE Producto SET cantidad = cantidad + @cantidad WHERE codigoProducto = @codigoProducto";
+            using SqlCommand cmd = new SqlCommand(query, con, transaction);
+            cmd.Parameters.AddWithValue("@codigoProducto", codigoProducto);
+            cmd.Parameters.AddWithValue("@cantidad", cantidad);
+            cmd.ExecuteNonQuery();
+        }
+
+        private void EliminarDetallesFactura(SqlConnection con, SqlTransaction transaction, int idFactura)
+        {
+            string query = "DELETE FROM DetalleFactura WHERE codigoFactura = @idFactura";
+            using SqlCommand cmd = new SqlCommand(query, con, transaction);
+            cmd.Parameters.AddWithValue("@idFactura", idFactura);
+            cmd.ExecuteNonQuery();
+        }
+
+        private void EliminarCreditoAsociado(SqlConnection con, SqlTransaction transaction, int idFactura)
+        {
+            string query = "DELETE FROM Credito WHERE codigoFactura = @idFactura";
+            using SqlCommand cmd = new SqlCommand(query, con, transaction);
+            cmd.Parameters.AddWithValue("@idFactura", idFactura);
+            cmd.ExecuteNonQuery();
+        }
+
+        private int EliminarFacturaPrincipal(SqlConnection con, SqlTransaction transaction, int id)
+        {
+            string query = "DELETE FROM Factura WHERE codigoFactura = @id";
+            using SqlCommand cmd = new SqlCommand(query, con, transaction);
+            cmd.Parameters.AddWithValue("@id", id);
+            return cmd.ExecuteNonQuery();
+        }
+
+        #endregion
 
         [HttpPut("ActualizarFactura/{id}")]
         public IActionResult ActualizarFactura(int id, [FromBody] Factura factura)

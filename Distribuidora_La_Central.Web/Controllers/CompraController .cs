@@ -344,18 +344,104 @@ namespace Distribuidora_La_Central.Web.Controllers
             public decimal PrecioUnitario { get; set; }
         }
 
-        [HttpDelete]
-        [Route("EliminarCompra/{id}")]
+        [HttpDelete("EliminarCompra/{id}")]
         public IActionResult EliminarCompra(int id)
         {
             using SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection"));
-            string query = "DELETE FROM Compra WHERE idCompra = @id";
-            using SqlCommand cmd = new SqlCommand(query, con);
-
-            cmd.Parameters.AddWithValue("@id", id);
             con.Open();
-            int rowsAffected = cmd.ExecuteNonQuery();
-            return Ok(rowsAffected > 0);
+            using SqlTransaction transaction = con.BeginTransaction();
+
+            try
+            {
+                // 1. Obtener los detalles de la compra para ajustar el inventario
+                List<DetalleCompra> detalles = ObtenerDetallesCompra(con, transaction, id);
+
+                // 2. Revertir los productos al inventario (restar las cantidades)
+                foreach (var detalle in detalles)
+                {
+                    AjustarInventario(con, transaction, detalle.CodigoProducto, -detalle.Cantidad);
+                }
+
+                // 3. Eliminar los detalles de la compra
+                EliminarDetallesCompra(con, transaction, id);
+
+                // 4. Finalmente, eliminar la compra principal
+                int filasAfectadas = EliminarCompraPrincipal(con, transaction, id);
+
+                if (filasAfectadas > 0)
+                {
+                    transaction.Commit();
+                    return Ok(new { success = true, message = "Compra eliminada correctamente" });
+                }
+                else
+                {
+                    transaction.Rollback();
+                    return NotFound(new { success = false, message = "Compra no encontrada" });
+                }
+            }
+            catch (Exception ex)
+            {
+                transaction.Rollback();
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Error al eliminar la compra",
+                    error = ex.Message,
+                    innerException = ex.InnerException?.Message
+                });
+            }
+        }
+
+        // Métodos auxiliares
+        private List<DetalleCompra> ObtenerDetallesCompra(SqlConnection con, SqlTransaction transaction, int idCompra)
+        {
+            string query = "SELECT CodigoProducto, Cantidad FROM DetalleCompra WHERE IdCompra = @IdCompra";
+            using SqlCommand cmd = new SqlCommand(query, con, transaction);
+            cmd.Parameters.AddWithValue("@IdCompra", idCompra);
+
+            var detalles = new List<DetalleCompra>();
+            using SqlDataReader reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                detalles.Add(new DetalleCompra
+                {
+                    CodigoProducto = reader.GetInt32(0),
+                    Cantidad = reader.GetInt32(1)
+                });
+            }
+            return detalles;
+        }
+
+        private void AjustarInventario(SqlConnection con, SqlTransaction transaction, int codigoProducto, int cantidad)
+        {
+            string query = "UPDATE Producto SET cantidad = cantidad + @Cantidad WHERE codigoProducto = @CodigoProducto";
+            using SqlCommand cmd = new SqlCommand(query, con, transaction);
+            cmd.Parameters.AddWithValue("@CodigoProducto", codigoProducto);
+            cmd.Parameters.AddWithValue("@Cantidad", cantidad);
+            cmd.ExecuteNonQuery();
+        }
+
+        private void EliminarDetallesCompra(SqlConnection con, SqlTransaction transaction, int idCompra)
+        {
+            string query = "DELETE FROM DetalleCompra WHERE IdCompra = @IdCompra";
+            using SqlCommand cmd = new SqlCommand(query, con, transaction);
+            cmd.Parameters.AddWithValue("@IdCompra", idCompra);
+            cmd.ExecuteNonQuery();
+        }
+
+        private int EliminarCompraPrincipal(SqlConnection con, SqlTransaction transaction, int idCompra)
+        {
+            string query = "DELETE FROM Compra WHERE idCompra = @IdCompra";
+            using SqlCommand cmd = new SqlCommand(query, con, transaction);
+            cmd.Parameters.AddWithValue("@IdCompra", idCompra);
+            return cmd.ExecuteNonQuery();
+        }
+
+        // Clase para los detalles de compra
+        private class DetalleCompra
+        {
+            public int CodigoProducto { get; set; }
+            public int Cantidad { get; set; }
         }
 
         [HttpPut]
@@ -494,12 +580,12 @@ namespace Distribuidora_La_Central.Web.Controllers
         }
 
         [HttpGet]
-[Route("DescargarReporteCompra/{idCompra?}")] // El parámetro es opcional
-public IActionResult DescargarReporteCompra(int? idCompra = null)
-{
-    using (SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
-    {
-        string query = @"SELECT 
+        [Route("DescargarReporteCompra/{idCompra?}")] // El parámetro es opcional
+        public IActionResult DescargarReporteCompra(int? idCompra = null)
+        {
+            using (SqlConnection con = new SqlConnection(_configuration.GetConnectionString("DefaultConnection")))
+            {
+                string query = @"SELECT 
                 c.idCompra,
                 c.Estado,
                 c.TotalCompra,
@@ -510,71 +596,71 @@ public IActionResult DescargarReporteCompra(int? idCompra = null)
             WHERE (@idCompra IS NULL OR c.idCompra = @idCompra)
             AND (@idCompra IS NOT NULL OR c.Estado = 'Pendiente')";
 
-        SqlCommand cmd = new SqlCommand(query, con);
-        cmd.Parameters.AddWithValue("@idCompra", idCompra ?? (object)DBNull.Value);
-        
-        SqlDataAdapter da = new SqlDataAdapter(cmd);
-        DataTable dt = new DataTable();
-        da.Fill(dt);
+                SqlCommand cmd = new SqlCommand(query, con);
+                cmd.Parameters.AddWithValue("@idCompra", idCompra ?? (object)DBNull.Value);
 
-        if (dt.Rows.Count == 0)
-        {
-            return NotFound(idCompra.HasValue ? 
-                $"No se encontró la compra con ID {idCompra}" : 
-                "No hay deudas pendientes");
-        }
+                SqlDataAdapter da = new SqlDataAdapter(cmd);
+                DataTable dt = new DataTable();
+                da.Fill(dt);
 
-        using (var stream = new MemoryStream())
-        {
-            var document = new Document(PageSize.A4.Rotate());
-            PdfWriter.GetInstance(document, stream).CloseStream = false;
-            document.Open();
+                if (dt.Rows.Count == 0)
+                {
+                    return NotFound(idCompra.HasValue ?
+                        $"No se encontró la compra con ID {idCompra}" :
+                        "No hay deudas pendientes");
+                }
 
-            var fontTitle = FontFactory.GetFont("Arial", 18, Font.BOLD);
-            var fontHeader = FontFactory.GetFont("Arial", 10, Font.BOLD, BaseColor.WHITE);
-            var fontCell = FontFactory.GetFont("Arial", 9);
+                using (var stream = new MemoryStream())
+                {
+                    var document = new Document(PageSize.A4.Rotate());
+                    PdfWriter.GetInstance(document, stream).CloseStream = false;
+                    document.Open();
 
-            // Título dinámico
-            string titulo = idCompra.HasValue ? 
-                $"Detalle de Compra #{idCompra}" : 
-                "Reporte de Deudas Pendientes";
-            
-            document.Add(new Paragraph(titulo, fontTitle));
-            document.Add(Chunk.NEWLINE);
+                    var fontTitle = FontFactory.GetFont("Arial", 18, Font.BOLD);
+                    var fontHeader = FontFactory.GetFont("Arial", 10, Font.BOLD, BaseColor.WHITE);
+                    var fontCell = FontFactory.GetFont("Arial", 9);
 
-            PdfPTable table = new PdfPTable(5);
-            table.WidthPercentage = 100;
-            float[] columnWidths = new float[] { 1f, 2f, 1.5f, 1.5f, 1.5f };
-            table.SetWidths(columnWidths);
+                    // Título dinámico
+                    string titulo = idCompra.HasValue ?
+                        $"Detalle de Compra #{idCompra}" :
+                        "Reporte de Deudas Pendientes";
 
-            AddHeaderCell(table, "ID Compra", fontHeader, BaseColor.DARK_GRAY);
-            AddHeaderCell(table, "Proveedor", fontHeader, BaseColor.DARK_GRAY);
-            AddHeaderCell(table, "Fecha Compra", fontHeader, BaseColor.DARK_GRAY);
-            AddHeaderCell(table, "Total", fontHeader, BaseColor.DARK_GRAY);
-            AddHeaderCell(table, "Estado", fontHeader, BaseColor.DARK_GRAY);
+                    document.Add(new Paragraph(titulo, fontTitle));
+                    document.Add(Chunk.NEWLINE);
 
-            foreach (DataRow row in dt.Rows)
-            {
-                table.AddCell(new Phrase(row["idCompra"].ToString(), fontCell));
-                table.AddCell(new Phrase(row["nombreProveedor"]?.ToString() ?? "-", fontCell));
-                table.AddCell(new Phrase(Convert.ToDateTime(row["fechaCompra"]).ToString("dd/MM/yyyy"), fontCell));
-                table.AddCell(new Phrase(Convert.ToDecimal(row["TotalCompra"]).ToString("C2"), fontCell));
-                table.AddCell(new Phrase(row["Estado"]?.ToString() ?? "-", fontCell));
+                    PdfPTable table = new PdfPTable(5);
+                    table.WidthPercentage = 100;
+                    float[] columnWidths = new float[] { 1f, 2f, 1.5f, 1.5f, 1.5f };
+                    table.SetWidths(columnWidths);
+
+                    AddHeaderCell(table, "ID Compra", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Proveedor", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Fecha Compra", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Total", fontHeader, BaseColor.DARK_GRAY);
+                    AddHeaderCell(table, "Estado", fontHeader, BaseColor.DARK_GRAY);
+
+                    foreach (DataRow row in dt.Rows)
+                    {
+                        table.AddCell(new Phrase(row["idCompra"].ToString(), fontCell));
+                        table.AddCell(new Phrase(row["nombreProveedor"]?.ToString() ?? "-", fontCell));
+                        table.AddCell(new Phrase(Convert.ToDateTime(row["fechaCompra"]).ToString("dd/MM/yyyy"), fontCell));
+                        table.AddCell(new Phrase(Convert.ToDecimal(row["TotalCompra"]).ToString("C2"), fontCell));
+                        table.AddCell(new Phrase(row["Estado"]?.ToString() ?? "-", fontCell));
+                    }
+
+                    document.Add(table);
+                    document.Close();
+
+                    stream.Position = 0;
+
+                    string fileName = idCompra.HasValue ?
+                        $"Compra_{idCompra}.pdf" :
+                        "Reporte_Deudas_Pendientes.pdf";
+
+                    return File(stream.ToArray(), "application/pdf", fileName);
+                }
             }
-
-            document.Add(table);
-            document.Close();
-
-            stream.Position = 0;
-            
-            string fileName = idCompra.HasValue ? 
-                $"Compra_{idCompra}.pdf" : 
-                "Reporte_Deudas_Pendientes.pdf";
-                
-            return File(stream.ToArray(), "application/pdf", fileName);
         }
-    }
-}
 
 
 
