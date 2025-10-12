@@ -1,56 +1,54 @@
-name: Escaneo de Dependencias (.NET)
+name: Análisis de Dependencias
 
 on:
   push:
-    branches:
-      - main
-      - master
+    branches: [ main, master ]
   pull_request:
-    branches:
-      - main
-      - master
 
 jobs:
-  dependency-check:
-    name: OWASP Dependency Check
+  dependency-review:
+    name: Revisión de dependencias (GitHub)
     runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout del repositorio
-        uses: actions/checkout@v4
-
-      - name: Instalar Java (requerido para OWASP)
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - name: Descargar OWASP Dependency Check
-        run: |
-          wget https://github.com/jeremylong/DependencyCheck/releases/download/v10.0.3/dependency-check-10.0.3-release.zip
-          unzip dependency-check-10.0.3-release.zip -d ./dependency-check
-
-      - name: Ejecutar análisis de dependencias
-        run: |
-          ./dependency-check/dependency-check/bin/dependency-check.sh \
-          --project "Distribuidora_La_Central" \
-          --scan . \
-          --format "HTML" \
-          --out ./dependency-report
-
-      - name: Subir reporte como artefacto
-        uses: actions/upload-artifact@v4
-        with:
-          name: dependency-report
-          path: dependency-report
-
-  github-dependency-review:
-    name: GitHub Dependency Review
-    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' # Solo en PRs
     steps:
       - name: Checkout del código
         uses: actions/checkout@v4
 
-      - name: Escanear dependencias con GitHub
+      - name: Dependency Review (GitHub)
         uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
 
+  owasp-scan:
+    name: Escaneo OWASP Dependency Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' # Solo en push
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Instalar Java (requisito de OWASP)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Descargar OWASP Dependency Check
+        run: |
+          curl -L -o dependency-check.zip https://github.com/jeremylong/DependencyCheck/releases/latest/download/dependency-check.zip
+          unzip dependency-check.zip -d $HOME/dependency-check
+          chmod +x $HOME/dependency-check/bin/dependency-check.sh
+
+      - name: Ejecutar OWASP Dependency Check
+        run: |
+          $HOME/dependency-check/bin/dependency-check.sh \
+            --project "Distribuidora_La_Central" \
+            --scan . \
+            --format "HTML" \
+            --out dependency-check-report
+
+      - name: Subir reporte como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: dependency-check-report
