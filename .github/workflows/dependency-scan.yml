@@ -9,7 +9,7 @@ jobs:
   dependency-review:
     name: Revisión de dependencias (GitHub)
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' # Solo en PRs
+    if: github.event_name == 'pull_request'
     steps:
       - name: Checkout del código
         uses: actions/checkout@v4
@@ -22,7 +22,7 @@ jobs:
   owasp-scan:
     name: Escaneo OWASP Dependency Check
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' # Solo en push
+    if: github.event_name == 'push'
     steps:
       - name: Checkout del código
         uses: actions/checkout@v4
@@ -33,15 +33,15 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Descargar OWASP Dependency Check
+      - name: Descargar OWASP Dependency Check (v9.2.0)
         run: |
-          curl -L -o dependency-check.zip https://github.com/jeremylong/DependencyCheck/releases/latest/download/dependency-check.zip
+          wget https://github.com/jeremylong/DependencyCheck/releases/download/v9.2.0/dependency-check-9.2.0-release.zip -O dependency-check.zip
           unzip dependency-check.zip -d $HOME/dependency-check
-          chmod +x $HOME/dependency-check/bin/dependency-check.sh
+          chmod +x $HOME/dependency-check/dependency-check/bin/dependency-check.sh
 
       - name: Ejecutar OWASP Dependency Check
         run: |
-          $HOME/dependency-check/bin/dependency-check.sh \
+          $HOME/dependency-check/dependency-check/bin/dependency-check.sh \
             --project "Distribuidora_La_Central" \
             --scan . \
             --format "HTML" \
