@@ -1,1 +1,49 @@
+name: Reporte Consolidado de Seguridad
+
+on:
+  workflow_run:
+    workflows: ["Análisis de Código (.NET SAST)", "Escaneo de Dependencias (.NET)"]
+    types:
+      - completed
+
+jobs:
+  generar-reporte:
+    name: Generar Dashboard Ejecutivo
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Descargar artefactos previos
+        uses: actions/download-artifact@v4
+        with:
+          path: ./analisis
+
+      - name: Generar dashboard HTML
+        run: |
+          echo "<html><head><title>Reporte de Seguridad - Distribuidora La Central</title></head><body>" > security-dashboard.html
+          echo "<h1>Consolidado de Seguridad</h1>" >> security-dashboard.html
+          echo "<p>Generado automáticamente por GitHub Actions</p>" >> security-dashboard.html
+          echo "<h2>Resultados Semgrep</h2>" >> security-dashboard.html
+          if [ -f "./analisis/semgrep-results/semgrep-results.json" ]; then
+            echo "<pre>" >> security-dashboard.html
+            cat ./analisis/semgrep-results/semgrep-results.json >> security-dashboard.html
+            echo "</pre>" >> security-dashboard.html
+          else
+            echo "<p>No se encontraron resultados de Semgrep.</p>" >> security-dashboard.html
+          fi
+          echo "<h2>Reporte OWASP Dependency Check</h2>" >> security-dashboard.html
+          if [ -f "./analisis/dependency-report/dependency-check-report.html" ]; then
+            echo "<iframe src='./analisis/dependency-report/dependency-check-report.html' width='100%' height='800'></iframe>" >> security-dashboard.html
+          else
+            echo "<p>No se encontró el reporte de dependencias.</p>" >> security-dashboard.html
+          fi
+          echo "</body></html>" >> security-dashboard.html
+
+      - name: Subir dashboard consolidado como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-dashboard
+          path: security-dashboard.html
 
