@@ -21,20 +21,26 @@ jobs:
         language: [ 'csharp' ]
 
     steps:
-      - name: Checkout
+      - name: Checkout del repositorio
         uses: actions/checkout@v4
 
-      - name: Initialize CodeQL
+      - name: Configurar .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Inicializar CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
 
-      - name: Build only Web project
-  run: |
-    dotnet restore ./Distribuidora_La_Central.Web/Distribuidora_La_Central.Web.csproj
-    dotnet build ./Distribuidora_La_Central.Web/Distribuidora_La_Central.Web.csproj --no-restore --configuration Release
+      # 🔧 Compila solo el proyecto Web para evitar workloads de MAUI
+      - name: Restaurar y compilar proyecto Web
+        run: |
+          dotnet restore ./Distribuidora_La_Central.Web/Distribuidora_La_Central.Web.csproj
+          dotnet build ./Distribuidora_La_Central.Web/Distribuidora_La_Central.Web.csproj --no-restore --configuration Release
 
-      - name: Analyze
+      - name: Analizar con CodeQL
         uses: github/codeql-action/analyze@v3
         with:
           category: "/language:${{matrix.language}}"
@@ -43,14 +49,13 @@ jobs:
     name: Semgrep SAST Scan
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout del código
         uses: actions/checkout@v4
 
       - name: Instalar Semgrep
-        run: |
-          pip install semgrep
+        run: pip install semgrep
 
-      - name: Ejecutar Semgrep
+      - name: Ejecutar Semgrep (análisis estático)
         run: |
           semgrep --config=p/ci --error --json > semgrep-results.json || true
 
@@ -59,4 +64,3 @@ jobs:
         with:
           name: semgrep-results
           path: semgrep-results.json
-
