@@ -29,8 +29,10 @@ jobs:
         with:
           languages: ${{ matrix.language }}
 
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+      - name: Build only Web project
+  run: |
+    dotnet restore ./Distribuidora_La_Central.Web/Distribuidora_La_Central.Web.csproj
+    dotnet build ./Distribuidora_La_Central.Web/Distribuidora_La_Central.Web.csproj --no-restore --configuration Release
 
       - name: Analyze
         uses: github/codeql-action/analyze@v3
