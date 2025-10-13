@@ -5,7 +5,7 @@ on:
     workflows: ["Análisis de Código (.NET SAST)", "Análisis de Dependencias (.NET)"]
     types:
       - completed
-      
+
 permissions:
   issues: write
   contents: read
@@ -48,27 +48,51 @@ jobs:
 
           echo "</body></html>" >> security-dashboard.html
 
-      - name: 📝 Generar resumen ejecutivo
+      - name: 📝 Generar informe ejecutivo
         run: |
-          echo "# 📊 Resumen Ejecutivo de Seguridad" > EXECUTIVE_SUMMARY.md
+          PROJECT_NAME=$(basename "$(git rev-parse --show-toplevel)")
+          echo "# 📊 Informe de Seguridad - $PROJECT_NAME" > EXECUTIVE_SUMMARY.md
           echo "" >> EXECUTIVE_SUMMARY.md
-          echo "Este reporte fue generado automáticamente." >> EXECUTIVE_SUMMARY.md
+          echo "## Resumen Ejecutivo" >> EXECUTIVE_SUMMARY.md
+          echo "- Calificación de seguridad general: TBD" >> EXECUTIVE_SUMMARY.md
+          echo "- Vulnerabilidades críticas: $(grep -o '"severity": *"CRITICAL"' ./analisis/semgrep-results/semgrep-results.json 2>/dev/null | wc -l)" >> EXECUTIVE_SUMMARY.md
+          echo "- Vulnerabilidades de alta severidad: $(grep -o '"severity": *"HIGH"' ./analisis/semgrep-results/semgrep-results.json 2>/dev/null | wc -l)" >> EXECUTIVE_SUMMARY.md
+          echo "- Puntos fuertes identificados: TBD" >> EXECUTIVE_SUMMARY.md
           echo "" >> EXECUTIVE_SUMMARY.md
-          echo "## Resultados Semgrep" >> EXECUTIVE_SUMMARY.md
+
+          echo "## Hallazgos Críticos" >> EXECUTIVE_SUMMARY.md
+          echo "| ID | Severidad | Tipo | Ubicación | Recomendación |" >> EXECUTIVE_SUMMARY.md
+          echo "|----|-----------|------|-----------|---------------|" >> EXECUTIVE_SUMMARY.md
           if [ -f "./analisis/semgrep-results/semgrep-results.json" ]; then
-            echo "\`\`\`json" >> EXECUTIVE_SUMMARY.md
-            cat ./analisis/semgrep-results/semgrep-results.json >> EXECUTIVE_SUMMARY.md
-            echo "\`\`\`" >> EXECUTIVE_SUMMARY.md
+            jq -r '.results[] | select(.extra.severity=="CRITICAL") | "| \(.check_id // "N/A") | \(.extra.severity) | \(.extra.metadata.category // "N/A") | \(.path // "N/A"):\(.start.line // "N/A") | Revisar código y aplicar buenas prácticas |"' ./analisis/semgrep-results/semgrep-results.json >> EXECUTIVE_SUMMARY.md || true
           else
-            echo "- ⚠️ No se encontraron resultados de Semgrep." >> EXECUTIVE_SUMMARY.md
+            echo "| N/A | N/A | N/A | N/A | N/A |" >> EXECUTIVE_SUMMARY.md
           fi
           echo "" >> EXECUTIVE_SUMMARY.md
-          echo "## Reporte de Dependencias" >> EXECUTIVE_SUMMARY.md
-          if [ -f "./analisis/dependency-report/dependency-check-report.html" ]; then
-            echo "- ✅ Reporte de dependencias generado correctamente." >> EXECUTIVE_SUMMARY.md
-          else
-            echo "- ⚠️ No se encontró el reporte de dependencias." >> EXECUTIVE_SUMMARY.md
-          fi
+
+          echo "## Análisis por Categoría" >> EXECUTIVE_SUMMARY.md
+          echo "### 🔍 Código" >> EXECUTIVE_SUMMARY.md
+          echo "- Problemas de inyección: TBD" >> EXECUTIVE_SUMMARY.md
+          echo "- Gestión de sesiones: TBD" >> EXECUTIVE_SUMMARY.md
+          echo "- Validación de entrada: TBD" >> EXECUTIVE_SUMMARY.md
+          echo "" >> EXECUTIVE_SUMMARY.md
+
+          echo "### 📦 Dependencias" >> EXECUTIVE_SUMMARY.md
+          echo "- Dependencias con vulnerabilidades: TBD" >> EXECUTIVE_SUMMARY.md
+          echo "- Librerías desactualizadas: TBD" >> EXECUTIVE_SUMMARY.md
+          echo "- Licencias problemáticas: TBD" >> EXECUTIVE_SUMMARY.md
+          echo "" >> EXECUTIVE_SUMMARY.md
+
+          echo "## Recomendaciones Prioritarias" >> EXECUTIVE_SUMMARY.md
+          echo "1. [ ] Remediar vulnerabilidades críticas inmediatamente" >> EXECUTIVE_SUMMARY.md
+          echo "2. [ ] Actualizar dependencias afectadas" >> EXECUTIVE_SUMMARY.md
+          echo "3. [ ] Implementar medidas adicionales de seguridad (validaciones, controles de acceso, etc.)" >> EXECUTIVE_SUMMARY.md
+          echo "" >> EXECUTIVE_SUMMARY.md
+
+          echo "## Métricas de Mejora" >> EXECUTIVE_SUMMARY.md
+          echo "- Cobertura de análisis: TBD%" >> EXECUTIVE_SUMMARY.md
+          echo "- Tiempo de remediación estimado: TBD días" >> EXECUTIVE_SUMMARY.md
+          echo "- Impacto en seguridad: Alto/Medio/Bajo" >> EXECUTIVE_SUMMARY.md
 
       - name: 📤 Subir dashboard consolidado
         uses: actions/upload-artifact@v4
@@ -76,7 +100,7 @@ jobs:
           name: security-dashboard
           path: security-dashboard.html
 
-      - name: 📤 Subir resumen ejecutivo
+      - name: 📤 Subir informe ejecutivo
         uses: actions/upload-artifact@v4
         with:
           name: executive-summary
