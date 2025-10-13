@@ -5,6 +5,10 @@ on:
     workflows: ["Análisis de Código (.NET SAST)", "Análisis de Dependencias (.NET)"]
     types:
       - completed
+      
+permissions:
+  issues: write
+  contents: read
 
 jobs:
   generar-reporte:
